@@ -1,4 +1,4 @@
-# SJ AI Operating System
+﻿# SJ AI Operating System
 
 ## Overview
 
@@ -10,7 +10,7 @@ The project is designed to help manage knowledge, investments, documents and AI 
 
 ## Current Version
 
-v0.3
+v0.4
 
 Current features
 
@@ -18,6 +18,8 @@ Current features
 - Create Stock Note
 - Read Stock Note
 - List Stock Notes
+- Search all Markdown notes by filename and content
+- List recently modified notes
 
 ---
 
