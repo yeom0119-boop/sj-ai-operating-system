@@ -2,47 +2,70 @@
 SJ AI Operating System
 modules/obsidian.py
 
-역할
-- Obsidian Vault 안에 종목별 Markdown 파일을 생성한다.
-- 기존 종목 파일이 있으면 새로운 분석 기록을 이어서 추가한다.
-- 저장된 종목 노트를 읽고 목록을 조회한다.
+Obsidian-compatible vault operations for local Markdown notes.
 
-TODO
-- 날짜별 분석 검색 기능
-- AI 분석 결과 자동 저장
+Role:
+- Create daily notes under vault/Daily/
+- Create stock notes under vault/Stocks/
+- Search the vault recursively by filename and content
+- List the most recently modified Markdown notes
+- Preserve legacy stock-note read/save helpers used by earlier versions
+
+TODO:
+- YAML front matter for daily and stock notes
+- Full-text search ranking and snippet highlighting
+- AI-generated summaries appended to daily notes
+- Configurable vault path via environment variable or settings file
 """
 
-from datetime import datetime
+from __future__ import annotations
+
+from datetime import date, datetime
 from pathlib import Path
 
-# Windows에서 파일 이름에 사용할 수 없는 문자
+# Characters that are invalid in Windows file names
 _INVALID_FILENAME_CHARS = '<>:"/\\|?*'
 
 
-def _get_stocks_folder() -> Path:
-    """vault/Stocks 폴더 경로를 반환한다."""
+def get_vault_root() -> Path:
+    """
+    Return the Obsidian vault root directory.
+
+    Output:
+        Absolute path to the project's vault/ folder.
+    """
+
     project_root = Path(__file__).resolve().parent.parent
-    return project_root / "vault" / "Stocks"
+    return project_root / "vault"
+
+
+def _get_daily_folder() -> Path:
+    """Return the vault/Daily/ folder path."""
+
+    return get_vault_root() / "Daily"
+
+
+def _get_stocks_folder() -> Path:
+    """Return the vault/Stocks/ folder path."""
+
+    return get_vault_root() / "Stocks"
 
 
 def sanitize_stock_name(stock: str) -> str:
     """
-    종목명을 파일 이름으로 안전하게 사용할 수 있도록 정리한다.
+    Normalize a stock ticker for safe use as a file name.
 
-    입력:
-        stock: 원본 종목명 또는 티커
+    Input:
+        stock: Raw ticker or stock name from user input.
 
-    출력:
-        정리된 종목명
+    Output:
+        Uppercase, filesystem-safe ticker string.
 
-    예외:
-        ValueError: 정리 후 이름이 비어 있을 때
+    Raises:
+        ValueError: When the cleaned name is empty.
     """
 
-    cleaned = stock.strip()
-
-    # 영문 티커는 대문자로 통일한다.
-    cleaned = cleaned.upper()
+    cleaned = stock.strip().upper()
 
     for char in _INVALID_FILENAME_CHARS:
         cleaned = cleaned.replace(char, "")
@@ -50,17 +73,198 @@ def sanitize_stock_name(stock: str) -> str:
     cleaned = cleaned.strip()
 
     if not cleaned:
-        raise ValueError("종목명이 비어 있거나 파일 이름으로 사용할 수 없습니다.")
+        raise ValueError("Stock ticker is empty or cannot be used as a file name.")
 
     return cleaned
 
 
+def _iter_markdown_files(root: Path) -> list[Path]:
+    """
+    Collect all Markdown files under a directory tree.
+
+    Input:
+        root: Vault root or subdirectory to scan.
+
+    Output:
+        List of .md file paths (files only, sorted for stable results).
+    """
+
+    if not root.exists():
+        return []
+
+    return sorted(
+        path
+        for path in root.rglob("*.md")
+        if path.is_file()
+    )
+
+
+def create_daily_note(note_date: date | None = None) -> tuple[Path, str]:
+    """
+    Create a daily note for the given date (today by default).
+
+    Input:
+        note_date: Calendar date for the note; defaults to today.
+
+    Output:
+        Tuple of (file path, action) where action is "create" or "exists".
+
+    Side effects:
+        Creates vault/Daily/ when missing. Does not overwrite existing notes.
+    """
+
+    target_date = note_date or date.today()
+    daily_folder = _get_daily_folder()
+    daily_folder.mkdir(parents=True, exist_ok=True)
+
+    filename = f"{target_date.isoformat()}.md"
+    file_path = daily_folder / filename
+
+    if file_path.exists():
+        return file_path, "exists"
+
+    created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    markdown = f"""# Daily Note — {target_date.isoformat()}
+
+- Created: {created_at}
+- Project: SJ AI Operating System v0.2
+
+## Notes
+
+"""
+
+    file_path.write_text(markdown, encoding="utf-8")
+    return file_path, "create"
+
+
+def create_stock_note(ticker: str, content: str = "") -> tuple[Path, str]:
+    """
+    Create a stock note for an uppercase ticker.
+
+    Input:
+        ticker: Stock ticker symbol (converted to uppercase).
+        content: Optional initial note body.
+
+    Output:
+        Tuple of (file path, action) where action is "create" or "exists".
+
+    Side effects:
+        Creates vault/Stocks/ when missing. Does not overwrite existing notes.
+    """
+
+    stocks_folder = _get_stocks_folder()
+    stocks_folder.mkdir(parents=True, exist_ok=True)
+
+    clean_ticker = sanitize_stock_name(ticker)
+    file_path = stocks_folder / f"{clean_ticker}.md"
+
+    if file_path.exists():
+        return file_path, "exists"
+
+    created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    body = content.strip() or "Add your analysis here."
+
+    markdown = f"""# {clean_ticker}
+
+## Basic Info
+
+- Ticker: {clean_ticker}
+- Created: {created_at}
+- Project: SJ AI Operating System v0.2
+
+## Analysis
+
+{body}
+"""
+
+    file_path.write_text(markdown, encoding="utf-8")
+    return file_path, "create"
+
+
+def search_vault(query: str) -> list[dict[str, object]]:
+    """
+    Search all Markdown files in the vault by filename and content.
+
+    Input:
+        query: Case-insensitive search term.
+
+    Output:
+        List of match dictionaries with keys:
+            - path: Absolute Path to the note
+            - relative_path: Path relative to the vault root
+            - filename_match: True when the query matches the file name
+            - content_match: True when the query appears in file contents
+    """
+
+    cleaned_query = query.strip()
+
+    if not cleaned_query:
+        return []
+
+    vault_root = get_vault_root()
+    needle = cleaned_query.casefold()
+    results: list[dict[str, object]] = []
+
+    for file_path in _iter_markdown_files(vault_root):
+        filename_match = needle in file_path.name.casefold()
+        content_match = False
+
+        try:
+            file_text = file_path.read_text(encoding="utf-8")
+        except OSError:
+            # Skip unreadable files instead of failing the whole search.
+            continue
+
+        content_match = needle in file_text.casefold()
+
+        if filename_match or content_match:
+            results.append(
+                {
+                    "path": file_path,
+                    "relative_path": file_path.relative_to(vault_root),
+                    "filename_match": filename_match,
+                    "content_match": content_match,
+                }
+            )
+
+    return results
+
+
+def list_recent_notes(limit: int = 10) -> list[tuple[Path, datetime]]:
+    """
+    List the most recently modified Markdown notes in the vault.
+
+    Input:
+        limit: Maximum number of notes to return (default 10).
+
+    Output:
+        List of (absolute path, last modified datetime) sorted newest first.
+    """
+
+    vault_root = get_vault_root()
+    markdown_files = _iter_markdown_files(vault_root)
+
+    dated_files: list[tuple[Path, datetime]] = []
+
+    for file_path in markdown_files:
+        try:
+            modified = datetime.fromtimestamp(file_path.stat().st_mtime)
+        except OSError:
+            continue
+
+        dated_files.append((file_path, modified))
+
+    # Newest modification time first
+    dated_files.sort(key=lambda item: item[1], reverse=True)
+    return dated_files[:limit]
+
+
 def list_stock_notes() -> list[str]:
     """
-    저장된 모든 종목 Markdown 노트 이름을 반환한다.
+    Return sorted stock note names (legacy helper).
 
-    출력:
-        .md 확장자를 제외한 종목명 목록 (알파벳 순)
+    Output:
+        List of .md file stems in vault/Stocks/.
     """
 
     stocks_folder = _get_stocks_folder()
@@ -79,13 +283,13 @@ def list_stock_notes() -> list[str]:
 
 def read_stock_note(stock: str) -> str:
     """
-    종목 Markdown 노트 전체 내용을 읽는다.
+    Read a stock note's full Markdown content (legacy helper).
 
-    입력:
-        stock: 종목명 또는 티커
+    Input:
+        stock: Ticker or stock name.
 
-    출력:
-        노트가 있으면 전체 UTF-8 Markdown 텍스트, 없으면 빈 문자열
+    Output:
+        Full note text, or an empty string when the note does not exist.
     """
 
     clean_stock = sanitize_stock_name(stock)
@@ -99,20 +303,17 @@ def read_stock_note(stock: str) -> str:
 
 def save_stock_note(stock: str, content: str) -> tuple[Path, str]:
     """
-    종목 분석 내용을 Markdown 파일에 저장한다.
+    Append analysis to an existing stock note or create a new one (legacy helper).
 
-    입력:
-        stock: 종목명 또는 티커
-        content: 저장할 분석 내용
+    Input:
+        stock: Ticker or stock name.
+        content: Analysis text to store.
 
-    출력:
-        생성 또는 수정된 파일 경로
-        작업 결과(create 또는 append)
+    Output:
+        Tuple of (file path, action) where action is "create" or "append".
     """
 
     stocks_folder = _get_stocks_folder()
-
-    # 저장 폴더가 없으면 자동 생성한다.
     stocks_folder.mkdir(parents=True, exist_ok=True)
 
     clean_stock = sanitize_stock_name(stock)
@@ -122,13 +323,13 @@ def save_stock_note(stock: str, content: str) -> tuple[Path, str]:
     new_entry = f"""
 ---
 
-## 분석 기록 — {created_at}
+## Analysis Entry — {created_at}
 
 {content}
 """
 
     if file_path.exists():
-        # 과거 기록을 보존하고 새로운 분석만 파일 아래에 추가한다.
+        # Keep prior entries and append the new analysis block.
         with file_path.open("a", encoding="utf-8") as file:
             file.write(new_entry)
 
@@ -136,17 +337,16 @@ def save_stock_note(stock: str, content: str) -> tuple[Path, str]:
 
     markdown = f"""# {clean_stock}
 
-## 기본 정보
+## Basic Info
 
-- 종목: {clean_stock}
-- 최초 작성 시간: {created_at}
-- 프로젝트: SJ AI Operating System
+- Ticker: {clean_stock}
+- Created: {created_at}
+- Project: SJ AI Operating System
 
-## 분석 기록 — {created_at}
+## Analysis Entry — {created_at}
 
 {content}
 """
 
     file_path.write_text(markdown, encoding="utf-8")
-
     return file_path, "create"
