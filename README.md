@@ -10,7 +10,7 @@ The project is designed to help manage knowledge, investments, documents and AI 
 
 ## Current Version
 
-v0.4
+v0.5
 
 Current features
 
@@ -18,6 +18,7 @@ Current features
 - Create Stock Note
 - Read Stock Note
 - List Stock Notes
+- Add timestamped analysis entries to stock notes
 - Search all Markdown notes by filename and content
 - List recently modified notes
 
@@ -48,3 +49,4 @@ README.md
 - AI Daily Briefing
 - Knowledge Management
 - Local AI Integration
+

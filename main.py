@@ -1,4 +1,4 @@
-"""SJ AI Operating System v0.4 command-line menu."""
+"""SJ AI Operating System v0.5 command-line menu."""
 
 import sys
 
@@ -9,6 +9,7 @@ from modules.obsidian import (
     list_recent_notes,
     list_stock_notes,
     read_stock_note,
+    save_stock_note,
     search_vault,
 )
 
@@ -23,18 +24,19 @@ def _configure_stdout() -> None:
 
 
 def print_menu() -> None:
-    """Print the v0.4 main menu."""
+    """Print the v0.5 main menu."""
     print()
     print("=========================")
-    print("SJ AI Operating System v0.4")
+    print("SJ AI Operating System v0.5")
     print("=========================")
     print("1. Create daily note")
     print("2. Create stock note")
     print("3. Read stock note")
     print("4. List stock notes")
-    print("5. Search all notes")
-    print("6. List recent notes")
-    print("7. Exit")
+    print("5. Add stock analysis")
+    print("6. Search all notes")
+    print("7. List recent notes")
+    print("8. Exit")
     print()
 
 
@@ -97,6 +99,32 @@ def handle_list_stock_notes() -> None:
         print(f"  - {name}")
 
 
+def handle_add_stock_analysis() -> None:
+    """Append a timestamped analysis entry to a stock note."""
+    ticker = input("Enter stock ticker: ").strip()
+    if not ticker:
+        print("\nError: ticker cannot be empty.")
+        return
+
+    content = input("Enter analysis: ").strip()
+    if not content:
+        print("\nError: analysis cannot be empty.")
+        return
+
+    try:
+        saved_path, action = save_stock_note(ticker, content)
+    except ValueError as error:
+        print(f"\nError: {error}")
+        return
+
+    print()
+    if action == "create":
+        print("Stock note created with analysis.")
+    else:
+        print("Analysis appended to stock note.")
+    print(f"Location: {_relative_vault_path(saved_path)}")
+
+
 def handle_search_vault() -> None:
     """Search every Markdown note by filename and content."""
     query = input("Enter search word: ").strip()
@@ -132,12 +160,12 @@ def handle_list_recent_notes() -> None:
 
 
 def main() -> None:
-    """Run the SJ AI Operating System v0.4 interactive menu."""
+    """Run the SJ AI Operating System v0.5 interactive menu."""
     _configure_stdout()
     while True:
         print_menu()
         try:
-            choice = input("Select (1-7): ").strip()
+            choice = input("Select (1-8): ").strip()
         except KeyboardInterrupt:
             print("\n\nInterrupted. Exiting.")
             break
@@ -153,14 +181,16 @@ def main() -> None:
         elif choice == "4":
             handle_list_stock_notes()
         elif choice == "5":
-            handle_search_vault()
+            handle_add_stock_analysis()
         elif choice == "6":
-            handle_list_recent_notes()
+            handle_search_vault()
         elif choice == "7":
+            handle_list_recent_notes()
+        elif choice == "8":
             print("\nGoodbye.")
             break
         else:
-            print("\nError: please enter a number from 1 to 7.")
+            print("\nError: please enter a number from 1 to 8.")
 
 
 if __name__ == "__main__":
