@@ -2,7 +2,7 @@
 SJ AI Operating System
 main.py
 
-Command-line entry point for the v0.2 Obsidian vault MVP.
+Command-line entry point for the v0.3 Obsidian vault MVP.
 
 Role:
 - Display the interactive menu
@@ -21,8 +21,8 @@ from modules.obsidian import (
     create_daily_note,
     create_stock_note,
     get_vault_root,
-    list_recent_notes,
-    search_vault,
+    list_stock_notes,
+    read_stock_note,
 )
 
 
@@ -37,16 +37,16 @@ def _configure_stdout() -> None:
 
 
 def print_menu() -> None:
-    """Print the v0.2 main menu."""
+    """Print the v0.3 main menu."""
 
     print()
     print("=========================")
-    print("SJ AI Operating System v0.2")
+    print("SJ AI Operating System v0.3")
     print("=========================")
     print("1. Create daily note")
     print("2. Create stock note")
-    print("3. Search vault")
-    print("4. List recent notes")
+    print("3. Read stock note")
+    print("4. List stock notes")
     print("5. Exit")
     print()
 
@@ -102,59 +102,50 @@ def handle_create_stock_note() -> None:
     print(f"Location: {_relative_vault_path(saved_path)}")
 
 
-def handle_search_vault() -> None:
-    """Search the vault by filename and file contents."""
+def handle_read_stock_note() -> None:
+    """Read and display a stock note by ticker symbol."""
 
-    query = input("Enter search term: ").strip()
+    symbol = input("Enter stock ticker: ").strip()
 
-    if not query:
+    if not symbol:
         print()
-        print("Error: search term cannot be empty.")
+        print("Error: ticker cannot be empty.")
         return
 
-    results = search_vault(query)
+    try:
+        note_text = read_stock_note(symbol)
+    except ValueError as error:
+        print()
+        print(f"Error: {error}")
+        return
 
     print()
 
-    if not results:
-        print("No matching notes found.")
+    if not note_text:
+        print("No stock note found for that ticker.")
         return
 
-    print(f"Found {len(results)} matching note(s):")
-
-    for match in results:
-        relative_path = match["relative_path"]
-        flags: list[str] = []
-
-        if match["filename_match"]:
-            flags.append("filename")
-        if match["content_match"]:
-            flags.append("content")
-
-        flag_text = ", ".join(flags) if flags else "match"
-        print(f"  - {relative_path} ({flag_text})")
+    print(note_text)
 
 
-def handle_list_recent_notes() -> None:
-    """Show the 10 most recently modified Markdown notes."""
+def handle_list_stock_notes() -> None:
+    """List all saved stock note tickers."""
 
-    recent_notes = list_recent_notes(limit=10)
+    notes = list_stock_notes()
 
     print()
 
-    if not recent_notes:
-        print("No Markdown notes found in the vault.")
+    if not notes:
+        print("No stock notes found.")
         return
 
-    print("10 most recently modified notes:")
-
-    for file_path, modified_at in recent_notes:
-        timestamp = modified_at.strftime("%Y-%m-%d %H:%M:%S")
-        print(f"  - {_relative_vault_path(file_path)}  [{timestamp}]")
+    print("Saved stock notes:")
+    for name in notes:
+        print(f"  - {name}")
 
 
 def main() -> None:
-    """Run the SJ AI Operating System v0.2 interactive menu."""
+    """Run the SJ AI Operating System v0.3 interactive menu."""
 
     _configure_stdout()
 
@@ -175,13 +166,13 @@ def main() -> None:
             handle_create_stock_note()
         elif choice == "3":
             try:
-                handle_search_vault()
+                handle_read_stock_note()
             except KeyboardInterrupt:
                 print()
                 print()
-                print("Search cancelled.")
+                print("Read cancelled.")
         elif choice == "4":
-            handle_list_recent_notes()
+            handle_list_stock_notes()
         elif choice == "5":
             print()
             print("Goodbye.")

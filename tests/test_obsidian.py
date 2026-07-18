@@ -6,6 +6,7 @@ Unit tests for vault operations in modules/obsidian.py.
 
 Role:
 - Verify daily and stock note creation behavior
+- Verify stock note read/list helpers
 - Verify vault search and recent-note listing
 - Run against a temporary vault so real user notes are never modified
 """
@@ -107,6 +108,44 @@ class ObsidianModuleTests(unittest.TestCase):
 
         self.assertEqual(action, "exists")
         self.assertEqual(existing_path.read_text(encoding="utf-8"), "# Existing NVDA note\n")
+
+    def test_read_stock_note_uppercases_symbol(self) -> None:
+        """read_stock_note resolves lowercase input to uppercase files."""
+
+        stocks_folder = self.vault_root / "Stocks"
+        stocks_folder.mkdir(parents=True)
+        note_path = stocks_folder / "NVDA.md"
+        note_path.write_text("# NVDA\nGPU analysis\n", encoding="utf-8")
+
+        content = obsidian.read_stock_note("nvda")
+
+        self.assertIn("GPU analysis", content)
+
+    def test_read_stock_note_returns_empty_when_missing(self) -> None:
+        """Missing stock notes return an empty string."""
+
+        self.assertEqual(obsidian.read_stock_note("MSFT"), "")
+
+    def test_read_stock_note_rejects_empty_symbol(self) -> None:
+        """Empty symbols raise ValueError."""
+
+        with self.assertRaises(ValueError):
+            obsidian.read_stock_note("   ")
+
+    def test_list_stock_notes_returns_sorted_tickers(self) -> None:
+        """list_stock_notes returns alphabetically sorted uppercase tickers."""
+
+        stocks_folder = self.vault_root / "Stocks"
+        stocks_folder.mkdir(parents=True)
+        (stocks_folder / "NVDA.md").write_text("# NVDA\n", encoding="utf-8")
+        (stocks_folder / "AAPL.md").write_text("# AAPL\n", encoding="utf-8")
+
+        self.assertEqual(obsidian.list_stock_notes(), ["AAPL", "NVDA"])
+
+    def test_list_stock_notes_returns_empty_when_folder_missing(self) -> None:
+        """list_stock_notes returns an empty list when Stocks/ does not exist."""
+
+        self.assertEqual(obsidian.list_stock_notes(), [])
 
     def test_search_vault_matches_filename_and_content(self) -> None:
         """Search scans the vault recursively for filename and content matches."""

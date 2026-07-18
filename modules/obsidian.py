@@ -7,9 +7,10 @@ Obsidian-compatible vault operations for local Markdown notes.
 Role:
 - Create daily notes under vault/Daily/
 - Create stock notes under vault/Stocks/
+- Read stock notes and list saved tickers
 - Search the vault recursively by filename and content
 - List the most recently modified Markdown notes
-- Preserve legacy stock-note read/save helpers used by earlier versions
+- Preserve legacy stock-note save helper used by earlier versions
 
 TODO:
 - YAML front matter for daily and stock notes
@@ -261,10 +262,10 @@ def list_recent_notes(limit: int = 10) -> list[tuple[Path, datetime]]:
 
 def list_stock_notes() -> list[str]:
     """
-    Return sorted stock note names (legacy helper).
+    List all saved stock note tickers in alphabetical order.
 
     Output:
-        List of .md file stems in vault/Stocks/.
+        List of uppercase .md file stems in vault/Stocks/.
     """
 
     stocks_folder = _get_stocks_folder()
@@ -281,18 +282,21 @@ def list_stock_notes() -> list[str]:
     return sorted(names)
 
 
-def read_stock_note(stock: str) -> str:
+def read_stock_note(symbol: str) -> str:
     """
-    Read a stock note's full Markdown content (legacy helper).
+    Read a stock note's full Markdown content.
 
     Input:
-        stock: Ticker or stock name.
+        symbol: Stock ticker symbol (converted to uppercase).
 
     Output:
         Full note text, or an empty string when the note does not exist.
+
+    Raises:
+        ValueError: When the symbol is empty or invalid.
     """
 
-    clean_stock = sanitize_stock_name(stock)
+    clean_stock = sanitize_stock_name(symbol)
     file_path = _get_stocks_folder() / f"{clean_stock}.md"
 
     if not file_path.exists():
