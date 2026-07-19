@@ -1,7 +1,8 @@
-"""SJ AI Operating System v1.0 command-line menu."""
+"""SJ AI Operating System v1.1 command-line menu."""
 
 import sys
 from modules.market_data import build_stock_report
+from modules.sec_filings import build_sec_filings_report
 from modules.obsidian import (
     create_daily_note,
     create_stock_note,
@@ -24,10 +25,10 @@ def _configure_stdout() -> None:
 
 
 def print_menu() -> None:
-    """Print the v1.0 main menu."""
+    """Print the v1.1 main menu."""
     print()
     print("=========================")
-    print("SJ AI Operating System v1.0")
+    print("SJ AI Operating System v1.1")
     print("=========================")
     print("1. Create daily note")
     print("2. Create stock note")
@@ -37,7 +38,8 @@ def print_menu() -> None:
     print("6. Search all notes")
     print("7. List recent notes")
     print("8. Generate automated stock report")
-    print("9. Exit")
+    print("9. Generate official SEC filings report")
+    print("10. Exit")
     print()
 
 
@@ -186,13 +188,39 @@ def handle_generate_stock_report() -> None:
         print("Automated market report appended to stock note.")
     print(f"Location: {_relative_vault_path(saved_path)}")
     
+
+def handle_generate_sec_report() -> None:
+    """Download official SEC filing links and append them to a stock note."""
+    ticker = input("Enter stock ticker: ").strip()
+    if not ticker:
+        print("\nError: ticker cannot be empty.")
+        return
+
+    print("\nDownloading official SEC filings...")
+
+    try:
+        report = build_sec_filings_report(ticker)
+        saved_path, action = save_stock_note(ticker, report)
+    except Exception as error:
+        # Keep the menu available when SEC access or configuration fails.
+        print(f"\nError: SEC report could not be created: {error}")
+        return
+
+    print()
+    if action == "create":
+        print("Stock note created with official SEC filings.")
+    else:
+        print("Official SEC filings appended to stock note.")
+    print(f"Location: {_relative_vault_path(saved_path)}")
+
+
 def main() -> None:
-    """Run the SJ AI Operating System v1.0 interactive menu."""
+    """Run the SJ AI Operating System v1.1 interactive menu."""
     _configure_stdout()
     while True:
         print_menu()
         try:
-            choice = input("Select (1-9): ").strip()
+            choice = input("Select (1-10): ").strip()
         except KeyboardInterrupt:
             print("\n\nInterrupted. Exiting.")
             break
@@ -216,10 +244,12 @@ def main() -> None:
         elif choice == "8":
             handle_generate_stock_report()
         elif choice == "9":
+            handle_generate_sec_report()
+        elif choice == "10":
             print("\nGoodbye.")
             break
         else:
-            print("\nError: please enter a number from 1 to 9.")
+            print("\nError: please enter a number from 1 to 10.")
 
 
 if __name__ == "__main__":
