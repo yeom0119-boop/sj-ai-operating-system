@@ -47,3 +47,35 @@
 - Add options OI, IV, put/call, breadth, and sector-flow data.
 - Calculate Money In Score and Money Out Score.
 
+
+---
+
+## Analysis Entry — 2026-07-19 17:19:59
+
+## Official SEC Filings
+
+### Confirmed facts
+
+- Ticker: NVDA
+- Company: NVIDIA CORP
+- SEC CIK: 0001045810
+- Source: U.S. Securities and Exchange Commission EDGAR
+
+### Recent filings
+
+- 2026-07-02 | 8-K | [Official document](https://www.sec.gov/Archives/edgar/data/1045810/000104581026000060/nvda-20260628.htm)
+- 2026-06-30 | 8-K | [Official document](https://www.sec.gov/Archives/edgar/data/1045810/000104581026000056/nvda-20260624.htm)
+- 2026-06-18 | 8-K | [Official document](https://www.sec.gov/Archives/edgar/data/1045810/000119312526275783/d48176d8k.htm)
+- 2026-05-20 | 10-Q | [Official document](https://www.sec.gov/Archives/edgar/data/1045810/000104581026000052/nvda-20260426.htm)
+- 2026-05-20 | 8-K | [Official document](https://www.sec.gov/Archives/edgar/data/1045810/000104581026000051/nvda-20260520.htm)
+- 2026-05-08 | 8-K | [Official document](https://www.sec.gov/Archives/edgar/data/1045810/000104581026000028/nvda-20260507.htm)
+- 2026-04-27 | 8-K | [Official document](https://www.sec.gov/Archives/edgar/data/1045810/000104581026000026/nvda-20260424.htm)
+- 2026-03-06 | 8-K | [Official document](https://www.sec.gov/Archives/edgar/data/1045810/000104581026000024/nvda-20260302.htm)
+- 2026-02-25 | 10-K | [Official document](https://www.sec.gov/Archives/edgar/data/1045810/000104581026000021/nvda-20260125.htm)
+- 2026-02-25 | 8-K | [Official document](https://www.sec.gov/Archives/edgar/data/1045810/000104581026000019/nvda-20260225.htm)
+
+### Analysis rule
+
+- SEC filing metadata is a confirmed primary-source fact.
+- Filing contents require separate extraction and interpretation.
+- Company guidance must be checked against the original document.
