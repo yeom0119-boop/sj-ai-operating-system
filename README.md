@@ -153,7 +153,7 @@ README.md
 
 The v1.2 system does not yet automatically:
 
-- Extract and summarize full SEC filing contents
+- - Summarize extracted SEC filing contents with an AI engine
 - Extract management guidance from earnings documents
 - Collect options OI and OI changes
 - Collect IV, IV Rank, and IV Percentile

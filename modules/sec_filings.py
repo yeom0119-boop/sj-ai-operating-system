@@ -313,7 +313,29 @@ def build_filing_content_report(
 
     filing = filings[0]
     filing_text = download_filing_text(filing["document_url"])
-    excerpts = find_keyword_excerpts(filing_text)
+    guidance_excerpts = find_keyword_excerpts(
+        filing_text,
+        keywords=(
+            "guidance",
+            "outlook",
+            "we expect",
+            "we anticipate",
+            "we estimate",
+            "we project",
+            "forward-looking",
+        ),
+        max_excerpts=6,
+    )
+    business_excerpts = find_keyword_excerpts(
+        filing_text,
+        keywords=(
+            "revenue",
+            "gross margin",
+            "demand",
+            "supply",
+        ),
+        max_excerpts=6,
+    )
 
     lines = [
         f"## Official SEC {form_type} Content Review",
@@ -327,14 +349,34 @@ def build_filing_content_report(
         f"- Form: {filing['form']}",
         f"- [Official SEC document]({filing['document_url']})",
         "",
-        "### Keyword excerpts from the official filing",
+        "### Management guidance candidates",
         "",
     ]
 
-    if not excerpts:
-        lines.append("- No configured keywords were found.")
+    if not guidance_excerpts:
+        lines.append("- No management-guidance phrases were found in this filing.")
     else:
-        for item in excerpts:
+            for item in guidance_excerpts:
+                lines.extend(
+                    [
+                        f"#### Keyword: {item['keyword']}",
+                        "",
+                        item["excerpt"],
+                        "",
+                    ]
+                )
+
+    lines.extend(
+        [
+            "### Business condition excerpts",
+            "",
+        ]
+    )
+
+    if not business_excerpts:
+        lines.append("- No configured business-condition phrases were found.")
+    else:
+        for item in business_excerpts:
             lines.extend(
                 [
                     f"#### Keyword: {item['keyword']}",
@@ -343,7 +385,7 @@ def build_filing_content_report(
                     "",
                 ]
             )
-
+  
     lines.extend(
         [
             "### Interpretation boundary",
