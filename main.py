@@ -2,7 +2,7 @@
 
 import sys
 from modules.market_data import build_stock_report
-from modules.sec_filings import build_sec_filings_report
+from modules.sec_filings import build_filing_content_report, build_sec_filings_report
 from modules.obsidian import (
     create_daily_note,
     create_stock_note,
@@ -199,7 +199,9 @@ def handle_generate_sec_report() -> None:
     print("\nDownloading official SEC filings...")
 
     try:
-        report = build_sec_filings_report(ticker)
+        metadata_report = build_sec_filings_report(ticker)
+        content_report = build_filing_content_report(ticker)
+        report = f"{metadata_report}\n\n{content_report}"
         saved_path, action = save_stock_note(ticker, report)
     except Exception as error:
         # Keep the menu available when SEC access or configuration fails.
