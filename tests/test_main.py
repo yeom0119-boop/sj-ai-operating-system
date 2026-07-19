@@ -5,7 +5,7 @@ tests/test_main.py
 Smoke tests for the interactive CLI entry point in main.py.
 
 Role:
-- Verify the v0.9 menu text
+- Verify the v1.0 menu text
 - Verify invalid menu input is handled without exiting
 """
 
@@ -22,14 +22,14 @@ class MainMenuTests(unittest.TestCase):
     """Tests for main.py menu behavior."""
 
     def test_print_menu_shows_v0_8_options(self) -> None:
-        """The menu displays the required v0.9 labels."""
+        """The menu displays the required v1.0 labels."""
         buffer = io.StringIO()
 
         with patch("sys.stdout", buffer):
             main.print_menu()
 
         output = buffer.getvalue()
-        self.assertIn("SJ AI Operating System v0.9", output)
+        self.assertIn("SJ AI Operating System v1.0", output)
         self.assertIn("1. Create daily note", output)
         self.assertIn("2. Create stock note", output)
         self.assertIn("3. Read stock note", output)

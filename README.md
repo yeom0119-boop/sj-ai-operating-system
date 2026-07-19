@@ -1,52 +1,51 @@
-﻿# SJ AI Operating System
+﻿# SJ AI Operating System v1.0 MVP
 
-## Overview
+SJ AI Operating System is a local, Markdown-based investment research system.
 
-SJ AI Operating System is a personal AI productivity system.
+It downloads market data, calculates technical indicators, creates preliminary institutional-footprint scores, and stores reports in a local Obsidian-compatible vault.
 
-The project is designed to help manage knowledge, investments, documents and AI workflows using a local Obsidian Vault.
+## Final Goal
 
----
+Build a modular decision-research platform that combines:
 
-## Current Version
+- Verified market data
+- Company IR guidance and earnings
+- Technical indicators
+- Options and breadth data
+- Institutional-footprint probability signals
+- Multiple AI analysis engines
+- Local Obsidian Markdown knowledge
 
-v0.5
+## Current Working Features
 
-Current features
-
-- Create Daily Note
-- Create Stock Note
-- Read Stock Note
-- List Stock Notes
-- Add timestamped analysis entries to stock notes
-- Search all Markdown notes by filename and content
+- Create daily notes
+- Create stock notes
+- Read stock notes
+- List stock notes
+- Add timestamped analysis entries
+- Search all Markdown notes
 - List recently modified notes
+- Download stock prices and volume from Yahoo Finance
+- Calculate MA20, MA60, MA150, and MA200
+- Calculate 20-day average volume
+- Calculate OBV and RSI14
+- Calculate preliminary Money In Score
+- Calculate preliminary Money Out Score
+- Separate confirmed facts from rule-based interpretations
+- Append automated reports to Obsidian stock notes
+- Preserve existing stock-note content
 
----
 
-## Folder Structure
 
-config/
+## Installation
 
-docs/
+Python 3.12 or later is recommended.
 
-modules/
+Install the required package:
 
-tests/
+```powershell
 
-vault/
+python -m pip install -r requirements.txt
 
-main.py
-
-README.md
-
----
-
-## Future Goals
-
-- AI Investment Assistant
-- Institution Footprint Radar
-- AI Daily Briefing
-- Knowledge Management
-- Local AI Integration
+```
 

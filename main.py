@@ -1,4 +1,4 @@
-"""SJ AI Operating System v0.9 command-line menu."""
+"""SJ AI Operating System v1.0 command-line menu."""
 
 import sys
 from modules.market_data import build_stock_report
@@ -24,10 +24,10 @@ def _configure_stdout() -> None:
 
 
 def print_menu() -> None:
-    """Print the v0.9 main menu."""
+    """Print the v1.0 main menu."""
     print()
     print("=========================")
-    print("SJ AI Operating System v0.9")
+    print("SJ AI Operating System v1.0")
     print("=========================")
     print("1. Create daily note")
     print("2. Create stock note")
@@ -187,7 +187,7 @@ def handle_generate_stock_report() -> None:
     print(f"Location: {_relative_vault_path(saved_path)}")
     
 def main() -> None:
-    """Run the SJ AI Operating System v0.9 interactive menu."""
+    """Run the SJ AI Operating System v1.0 interactive menu."""
     _configure_stdout()
     while True:
         print_menu()
