@@ -171,5 +171,5 @@ def build_stock_report(ticker: str) -> str:
 
 - Add official IR guidance and earnings data.
 - Add options OI, IV, put/call, breadth, and sector-flow data.
-- Calculate Money In Score and Money Out Score.
+- Refine Money In and Money Out scores with options, breadth, and sector-flow data.
 """
