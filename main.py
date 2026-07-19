@@ -1,6 +1,7 @@
-"""SJ AI Operating System v1.3 command-line menu."""
+"""SJ AI Operating System v1.4 command-line menu."""
 
 import sys
+from modules.ai_analyzer import analyze_sec_guidance
 from modules.market_data import build_stock_report
 from modules.sec_filings import (
     build_earnings_guidance_report,
@@ -29,10 +30,10 @@ def _configure_stdout() -> None:
 
 
 def print_menu() -> None:
-    """Print the v1.3 main menu."""
+    """Print the v1.4 main menu."""
     print()
     print("=========================")
-    print("SJ AI Operating System v1.3")
+    print("SJ AI Operating System v1.4")
     print("=========================")
     print("1. Create daily note")
     print("2. Create stock note")
@@ -43,7 +44,8 @@ def print_menu() -> None:
     print("7. List recent notes")
     print("8. Generate automated stock report")
     print("9. Generate official SEC filings report")
-    print("10. Exit")
+    print("10. Generate Gemini SEC guidance analysis")
+    print("11. Exit")
     print()
 
 
@@ -220,14 +222,39 @@ def handle_generate_sec_report() -> None:
         print("Official SEC filings appended to stock note.")
     print(f"Location: {_relative_vault_path(saved_path)}")
 
+def handle_generate_gemini_guidance_analysis() -> None:
+    """Analyze official SEC earnings guidance with Gemini and save the result."""
+    ticker = input("Enter stock ticker: ").strip()
+    if not ticker:
+        print("\nError: ticker cannot be empty.")
+        return
+
+    print("\nAnalyzing official SEC guidance with Gemini...")
+
+    try:
+        guidance_report = build_earnings_guidance_report(ticker)
+        analysis = analyze_sec_guidance(ticker, guidance_report)
+        saved_path, action = save_stock_note(ticker, analysis)
+    except Exception as error:
+        # Keep the menu available when SEC or Gemini access fails.
+        print(f"\nError: Gemini guidance analysis could not be created: {error}")
+        return
+
+    print()
+    if action == "create":
+        print("Stock note created with Gemini SEC guidance analysis.")
+    else:
+        print("Gemini SEC guidance analysis appended to stock note.")
+    print(f"Location: {_relative_vault_path(saved_path)}")
+
 
 def main() -> None:
-    """Run the SJ AI Operating System v1.3 interactive menu."""
+    """Run the SJ AI Operating System v1.4 interactive menu."""
     _configure_stdout()
     while True:
         print_menu()
         try:
-            choice = input("Select (1-10): ").strip()
+            choice = input("Select (1-11): ").strip()
         except KeyboardInterrupt:
             print("\n\nInterrupted. Exiting.")
             break
@@ -253,10 +280,12 @@ def main() -> None:
         elif choice == "9":
             handle_generate_sec_report()
         elif choice == "10":
+            handle_generate_gemini_guidance_analysis()
+        elif choice == "11":
             print("\nGoodbye.")
             break
         else:
-            print("\nError: please enter a number from 1 to 10.")
+            print("\nError: please enter a number from 1 to 11.")
 
 
 if __name__ == "__main__":

@@ -386,7 +386,7 @@ def build_earnings_guidance_report(
             "tax rates are expected",
             "capital expenditures",
         ),
-        context_chars=420,
+        context_chars=900,
         max_excerpts=10,
     )
 
