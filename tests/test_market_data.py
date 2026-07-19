@@ -35,6 +35,9 @@ class MarketDataTests(unittest.TestCase):
 
         self.assertIn("MA20", result.columns)
         self.assertIn("MA60", result.columns)
+        self.assertIn("MA150", result.columns)
+        self.assertIn("MA200", result.columns)
+        self.assertIn("VOLUME20", result.columns)
         self.assertIn("OBV", result.columns)
         self.assertIn("RSI14", result.columns)
         self.assertAlmostEqual(result["MA20"].iloc[-1], 50.5)

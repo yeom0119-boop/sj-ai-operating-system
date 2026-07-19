@@ -6,6 +6,7 @@ import re
 
 import pandas as pd
 import yfinance as yf
+from modules.footprint import calculate_footprint_scores
 
 
 def normalize_ticker(ticker: str) -> str:
@@ -58,7 +59,9 @@ def calculate_indicators(data: pd.DataFrame) -> pd.DataFrame:
 
     result["MA20"] = result["Close"].rolling(window=20).mean()
     result["MA60"] = result["Close"].rolling(window=60).mean()
-
+    result["MA150"] = result["Close"].rolling(window=150).mean()
+    result["MA200"] = result["Close"].rolling(window=200).mean()
+    result["VOLUME20"] = result["Volume"].rolling(window=20).mean()
     price_direction = result["Close"].diff().fillna(0).apply(
         lambda change: 1 if change > 0 else -1 if change < 0 else 0
     )
@@ -86,21 +89,32 @@ def build_stock_report(ticker: str) -> str:
     """
     symbol = normalize_ticker(ticker)
     indicators = calculate_indicators(fetch_stock_history(symbol))
+    footprint = calculate_footprint_scores(indicators)
     latest = indicators.iloc[-1]
     previous = indicators.iloc[-2]
 
     close_price = float(latest["Close"])
     previous_close = float(previous["Close"])
     daily_change = ((close_price / previous_close) - 1) * 100
+   
     ma20 = float(latest["MA20"])
     ma60 = float(latest["MA60"])
+    ma150 = float(latest["MA150"])
+    ma200 = float(latest["MA200"])
+    volume20 = float(latest["VOLUME20"])
+    volume_ratio = (float(latest["Volume"]) / volume20) * 100
     obv = int(latest["OBV"])
     rsi14 = float(latest["RSI14"])
     market_date = latest.name.strftime("%Y-%m-%d")
+    money_in_score = int(footprint["money_in_score"])
+    money_out_score = int(footprint["money_out_score"])
+    money_in_details = "\n".join(f"- {signal}" for signal in footprint["money_in_signals"])
+    money_out_details = "\n".join(f"- {signal}" for signal in footprint["money_out_signals"])
 
     price_vs_ma20 = "above" if close_price >= ma20 else "below"
     price_vs_ma60 = "above" if close_price >= ma60 else "below"
-
+    price_vs_ma150 = "above" if close_price >= ma150 else "below"
+    price_vs_ma200 = "above" if close_price >= ma200 else "below"
     if rsi14 >= 70:
         rsi_state = "overbought zone"
     elif rsi14 >= 55:
@@ -113,7 +127,7 @@ def build_stock_report(ticker: str) -> str:
         rsi_state = "oversold zone"
 
     return f"""## Automated Market Data — {market_date}
-
+    volume_ratio = (float(latest["Volume"]) / volume20) * 100
 ### Confirmed facts
 
 - Ticker: {symbol}
@@ -122,14 +136,33 @@ def build_stock_report(ticker: str) -> str:
 - Volume: {int(latest["Volume"]):,}
 - MA20: ${ma20:,.2f}
 - MA60: ${ma60:,.2f}
+- MA150: ${ma150:,.2f}
+- MA200: ${ma200:,.2f}
+- 20-day average volume: {int(volume20):,}
+- Volume vs 20-day average: {volume_ratio:.1f}%
 - OBV: {obv:,}
 - RSI14: {rsi14:.2f}
 - Data source: Yahoo Finance via yfinance
+
+### Preliminary Institutional Footprint
+
+- Money In Score: {money_in_score}/100
+- Money Out Score: {money_out_score}/100
+
+#### Money In signals
+
+{money_in_details}
+
+#### Money Out signals
+
+{money_out_details}
 
 ### Rule-based interpretation
 
 - Price is {price_vs_ma20} MA20.
 - Price is {price_vs_ma60} MA60.
+- Price is {price_vs_ma150} MA150.
+- Price is {price_vs_ma200} MA200.
 - RSI14 is in the {rsi_state}.
 - This is a preliminary technical reading, not a confirmed institutional decision.
 - Company IR guidance, earnings, options, breadth, and current news require separate verification.
