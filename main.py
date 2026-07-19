@@ -232,8 +232,13 @@ def handle_generate_gemini_guidance_analysis() -> None:
     print("\nAnalyzing official SEC guidance with Gemini...")
 
     try:
-        guidance_report = build_earnings_guidance_report(ticker)
-        analysis = analyze_sec_guidance(ticker, guidance_report)
+        current_report = build_earnings_guidance_report(ticker, release_index=0)
+        previous_report = build_earnings_guidance_report(ticker, release_index=1)
+        comparison_source = (
+            f"# CURRENT EARNINGS GUIDANCE\n\n{current_report}"
+            f"\n\n# PREVIOUS EARNINGS GUIDANCE\n\n{previous_report}"
+        )
+        analysis = analyze_sec_guidance(ticker, comparison_source)
         saved_path, action = save_stock_note(ticker, analysis)
     except Exception as error:
         # Keep the menu available when SEC or Gemini access fails.

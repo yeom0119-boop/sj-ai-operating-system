@@ -69,6 +69,10 @@ Required structure:
 - Clearly label interpretation as inference.
 
 ### Prior-period comparison
+- If CURRENT and PREVIOUS reports are supplied, compare guidance to guidance.
+- Compare revenue, gross margin, operating expenses, and tax rate in a Markdown table.
+- Never mix actual results with guidance values.
+- Show the previous value, current value, and numerical change.
 - If prior guidance is not supplied, say that comparison cannot yet be confirmed.
 - Never invent prior numbers.
 

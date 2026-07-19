@@ -343,12 +343,14 @@ def find_keyword_excerpts(
 def build_earnings_guidance_report(
     ticker: str,
     search_limit: int = 8,
+    release_index: int = 0,
 ) -> str:
     """Create a guidance report from the latest SEC earnings-release exhibit.
 
     Input:
         ticker: A U.S. stock ticker.
         search_limit: Number of recent 8-K filings checked for Exhibit 99.1.
+        release_index: Earnings release position, where 0 is latest and 1 is previous.
     Output:
         Markdown containing official earnings-release guidance candidates.
     Role:
@@ -360,15 +362,24 @@ def build_earnings_guidance_report(
         limit=search_limit,
     )
 
+    if release_index < 0:
+        raise ValueError("release_index cannot be negative.")
+
     selected_filing: dict[str, object] | None = None
     exhibit_url = ""
+    matched_release_index = 0
 
     for filing in filings:
         exhibit_urls = get_filing_exhibit_urls(filing)
-        if exhibit_urls:
+        if not exhibit_urls:
+            continue
+
+        if matched_release_index == release_index:
             selected_filing = filing
             exhibit_url = exhibit_urls[0]
             break
+
+        matched_release_index += 1
 
     if selected_filing is None:
         raise RuntimeError(
