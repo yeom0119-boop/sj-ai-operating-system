@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import re
+from urllib.parse import urljoin
 from functools import lru_cache
 from typing import Iterable
 
@@ -230,6 +231,53 @@ def download_filing_text(document_url: str) -> str:
 
     return cleaned_text
 
+def get_filing_exhibit_urls(
+    filing: dict[str, object],
+    exhibit_types: Iterable[str] = ("EX-99.1", "EX-99.01"),
+) -> list[str]:
+    """Find official SEC exhibit document URLs from a filing index.
+
+    Input:
+        filing: Filing metadata created by get_recent_filings.
+        exhibit_types: SEC exhibit types commonly used for earnings releases.
+    Output:
+        Official SEC Archives URLs for matching exhibit documents.
+    Role:
+        Locate earnings-release attachments that often contain management guidance.
+    """
+    document_url = str(filing["document_url"])
+    accession_number = str(filing["accession_number"])
+    filing_directory = document_url.rsplit("/", 1)[0]
+    index_url = f"{filing_directory}/{accession_number}-index.html"
+
+    headers = {
+        "User-Agent": get_sec_user_agent(),
+        "Accept-Encoding": "gzip, deflate",
+    }
+    response = requests.get(index_url, headers=headers, timeout=30)
+    response.raise_for_status()
+
+    soup = BeautifulSoup(response.content, "html.parser")
+    allowed_types = {item.upper() for item in exhibit_types}
+    exhibit_urls: list[str] = []
+
+    for row in soup.select("table.tableFile tr"):
+        cells = row.find_all("td")
+        if len(cells) < 4:
+            continue
+
+        exhibit_type = cells[3].get_text(" ", strip=True).upper()
+        if exhibit_type not in allowed_types:
+            continue
+
+        document_link = cells[2].find("a", href=True)
+        if document_link is None:
+            continue
+
+        exhibit_urls.append(urljoin(index_url, str(document_link["href"])))
+
+    return exhibit_urls
+
 
 def find_keyword_excerpts(
     filing_text: str,
@@ -291,6 +339,96 @@ def find_keyword_excerpts(
                 return results
 
     return results
+
+def build_earnings_guidance_report(
+    ticker: str,
+    search_limit: int = 8,
+) -> str:
+    """Create a guidance report from the latest SEC earnings-release exhibit.
+
+    Input:
+        ticker: A U.S. stock ticker.
+        search_limit: Number of recent 8-K filings checked for Exhibit 99.1.
+    Output:
+        Markdown containing official earnings-release guidance candidates.
+    Role:
+        Prioritize company-provided guidance from an official SEC attachment.
+    """
+    filings = get_recent_filings(
+        ticker,
+        forms=("8-K",),
+        limit=search_limit,
+    )
+
+    selected_filing: dict[str, object] | None = None
+    exhibit_url = ""
+
+    for filing in filings:
+        exhibit_urls = get_filing_exhibit_urls(filing)
+        if exhibit_urls:
+            selected_filing = filing
+            exhibit_url = exhibit_urls[0]
+            break
+
+    if selected_filing is None:
+        raise RuntimeError(
+            f"No recent earnings-release exhibit found for {ticker.upper()}."
+        )
+
+    exhibit_text = download_filing_text(exhibit_url)
+    guidance_excerpts = find_keyword_excerpts(
+        exhibit_text,
+        keywords=(
+            "revenue is expected",
+            "gross margins are expected",
+            "gross margin is expected",
+            "operating expenses are expected",
+            "tax rates are expected",
+            "capital expenditures",
+        ),
+        context_chars=420,
+        max_excerpts=10,
+    )
+
+    lines = [
+        "## Official Earnings Guidance Review",
+        "",
+        "### Confirmed source facts",
+        "",
+        f"- Ticker: {selected_filing['ticker']}",
+        f"- Company: {selected_filing['company_name']}",
+        f"- Filing date: {selected_filing['filing_date']}",
+        f"- Form: {selected_filing['form']}",
+        f"- [Official SEC earnings exhibit]({exhibit_url})",
+        "",
+        "### Management guidance candidates",
+        "",
+    ]
+
+    if not guidance_excerpts:
+        lines.append("- No configured guidance phrases were found.")
+    else:
+        for item in guidance_excerpts:
+            lines.extend(
+                [
+                    f"#### Guidance phrase: {item['keyword']}",
+                    "",
+                    item["excerpt"],
+                    "",
+                ]
+            )
+
+    lines.extend(
+        [
+            "### Interpretation boundary",
+            "",
+            "- The source is an official SEC earnings-release exhibit.",
+            "- Extracted passages are confirmed text, but investment interpretation remains separate.",
+            "- Compare this guidance with prior guidance and actual results before valuation.",
+        ]
+    )
+
+    return "\n".join(lines)
 
 
 def build_filing_content_report(

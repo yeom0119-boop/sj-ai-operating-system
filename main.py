@@ -1,8 +1,12 @@
-"""SJ AI Operating System v1.2 command-line menu."""
+"""SJ AI Operating System v1.3 command-line menu."""
 
 import sys
 from modules.market_data import build_stock_report
-from modules.sec_filings import build_filing_content_report, build_sec_filings_report
+from modules.sec_filings import (
+    build_earnings_guidance_report,
+    build_filing_content_report,
+    build_sec_filings_report,
+)
 from modules.obsidian import (
     create_daily_note,
     create_stock_note,
@@ -25,10 +29,10 @@ def _configure_stdout() -> None:
 
 
 def print_menu() -> None:
-    """Print the v1.2 main menu."""
+    """Print the v1.3 main menu."""
     print()
     print("=========================")
-    print("SJ AI Operating System v1.2")
+    print("SJ AI Operating System v1.3")
     print("=========================")
     print("1. Create daily note")
     print("2. Create stock note")
@@ -201,7 +205,8 @@ def handle_generate_sec_report() -> None:
     try:
         metadata_report = build_sec_filings_report(ticker)
         content_report = build_filing_content_report(ticker)
-        report = f"{metadata_report}\n\n{content_report}"
+        guidance_report = build_earnings_guidance_report(ticker)
+        report = f"{metadata_report}\n\n{content_report}\n\n{guidance_report}"
         saved_path, action = save_stock_note(ticker, report)
     except Exception as error:
         # Keep the menu available when SEC access or configuration fails.
@@ -217,7 +222,7 @@ def handle_generate_sec_report() -> None:
 
 
 def main() -> None:
-    """Run the SJ AI Operating System v1.2 interactive menu."""
+    """Run the SJ AI Operating System v1.3 interactive menu."""
     _configure_stdout()
     while True:
         print_menu()
