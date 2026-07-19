@@ -1,4 +1,4 @@
-﻿# SJ AI Operating System v1.1 MVP
+﻿# SJ AI Operating System v1.2 MVP
 
 SJ AI Operating System is a local, Markdown-based investment research system.
 
@@ -151,7 +151,7 @@ README.md
 
 ## Current Limitations
 
-The v1.1 system does not yet automatically:
+The v1.2 system does not yet automatically:
 
 - Extract and summarize full SEC filing contents
 - Extract management guidance from earnings documents
