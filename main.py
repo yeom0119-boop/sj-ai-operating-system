@@ -1,7 +1,7 @@
 """SJ AI Operating System v0.5 command-line menu."""
 
 import sys
-
+from modules.market_data import build_stock_report
 from modules.obsidian import (
     create_daily_note,
     create_stock_note,
@@ -24,10 +24,10 @@ def _configure_stdout() -> None:
 
 
 def print_menu() -> None:
-    """Print the v0.5 main menu."""
+    """Print the v0.7 main menu."""
     print()
     print("=========================")
-    print("SJ AI Operating System v0.5")
+    print("SJ AI Operating System v0.7")
     print("=========================")
     print("1. Create daily note")
     print("2. Create stock note")
@@ -36,7 +36,8 @@ def print_menu() -> None:
     print("5. Add stock analysis")
     print("6. Search all notes")
     print("7. List recent notes")
-    print("8. Exit")
+    print("8. Generate automated stock report")
+    print("9. Exit")
     print()
 
 
@@ -159,13 +160,39 @@ def handle_list_recent_notes() -> None:
         print(f"  - {relative_path} ({modified:%Y-%m-%d %H:%M:%S})")
 
 
+
+
+def handle_generate_stock_report() -> None:
+    """Download market data and append an automated report to a stock note."""
+    ticker = input("Enter stock ticker: ").strip()
+    if not ticker:
+        print("\nError: ticker cannot be empty.")
+        return
+
+    print("\nDownloading market data...")
+
+    try:
+        report = build_stock_report(ticker)
+        saved_path, action = save_stock_note(ticker, report)
+    except Exception as error:
+        # Keep the interactive menu running when internet or provider errors occur.
+        print(f"\nError: market report could not be created: {error}")
+        return
+
+    print()
+    if action == "create":
+        print("Stock note created with automated market report.")
+    else:
+        print("Automated market report appended to stock note.")
+    print(f"Location: {_relative_vault_path(saved_path)}")
+    
 def main() -> None:
     """Run the SJ AI Operating System v0.5 interactive menu."""
     _configure_stdout()
     while True:
         print_menu()
         try:
-            choice = input("Select (1-8): ").strip()
+            choice = input("Select (1-9): ").strip()
         except KeyboardInterrupt:
             print("\n\nInterrupted. Exiting.")
             break
@@ -187,10 +214,12 @@ def main() -> None:
         elif choice == "7":
             handle_list_recent_notes()
         elif choice == "8":
+            handle_generate_stock_report()
+        elif choice == "9":
             print("\nGoodbye.")
             break
         else:
-            print("\nError: please enter a number from 1 to 8.")
+            print("\nError: please enter a number from 1 to 9.")
 
 
 if __name__ == "__main__":

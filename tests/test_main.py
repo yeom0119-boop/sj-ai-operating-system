@@ -21,15 +21,15 @@ import main
 class MainMenuTests(unittest.TestCase):
     """Tests for main.py menu behavior."""
 
-    def test_print_menu_shows_v0_5_options(self) -> None:
-        """The menu displays the required v0.5 labels."""
+    def test_print_menu_shows_v0_7_options(self) -> None:
+        """The menu displays the required v0.7 labels."""
         buffer = io.StringIO()
 
         with patch("sys.stdout", buffer):
             main.print_menu()
 
         output = buffer.getvalue()
-        self.assertIn("SJ AI Operating System v0.5", output)
+        self.assertIn("SJ AI Operating System v0.7", output)
         self.assertIn("1. Create daily note", output)
         self.assertIn("2. Create stock note", output)
         self.assertIn("3. Read stock note", output)
@@ -37,11 +37,12 @@ class MainMenuTests(unittest.TestCase):
         self.assertIn("5. Add stock analysis", output)
         self.assertIn("6. Search all notes", output)
         self.assertIn("7. List recent notes", output)
-        self.assertIn("8. Exit", output)
+        self.assertIn("8. Generate automated stock report", output)
+        self.assertIn("9. Exit", output)
 
     def test_main_rejects_invalid_choice(self) -> None:
         """Invalid menu input prints an error and keeps running until Exit."""
-        inputs = iter(["9", "8"])
+        inputs = iter(["10", "9"])
         buffer = io.StringIO()
 
         with patch("builtins.input", lambda _prompt="": next(inputs)):
@@ -49,7 +50,7 @@ class MainMenuTests(unittest.TestCase):
                 main.main()
 
         output = buffer.getvalue()
-        self.assertIn("Error: please enter a number from 1 to 8.", output)
+        self.assertIn("Error: please enter a number from 1 to 9.", output)
         self.assertIn("Goodbye.", output)
 
 

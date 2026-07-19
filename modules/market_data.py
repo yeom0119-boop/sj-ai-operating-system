@@ -73,3 +73,70 @@ def calculate_indicators(data: pd.DataFrame) -> pd.DataFrame:
     result["RSI14"] = 100 - (100 / (1 + relative_strength))
 
     return result
+    
+def build_stock_report(ticker: str) -> str:
+    """Create a Markdown market-data report for an Obsidian stock note.
+
+    Input:
+        ticker: A stock ticker such as NVDA or MSFT.
+    Output:
+        Markdown containing verified data and rule-based interpretations.
+    Role:
+        Keep confirmed market facts separate from preliminary hypotheses.
+    """
+    symbol = normalize_ticker(ticker)
+    indicators = calculate_indicators(fetch_stock_history(symbol))
+    latest = indicators.iloc[-1]
+    previous = indicators.iloc[-2]
+
+    close_price = float(latest["Close"])
+    previous_close = float(previous["Close"])
+    daily_change = ((close_price / previous_close) - 1) * 100
+    ma20 = float(latest["MA20"])
+    ma60 = float(latest["MA60"])
+    obv = int(latest["OBV"])
+    rsi14 = float(latest["RSI14"])
+    market_date = latest.name.strftime("%Y-%m-%d")
+
+    price_vs_ma20 = "above" if close_price >= ma20 else "below"
+    price_vs_ma60 = "above" if close_price >= ma60 else "below"
+
+    if rsi14 >= 70:
+        rsi_state = "overbought zone"
+    elif rsi14 >= 55:
+        rsi_state = "positive momentum zone"
+    elif rsi14 >= 50:
+        rsi_state = "neutral-to-positive zone"
+    elif rsi14 >= 30:
+        rsi_state = "weak momentum zone"
+    else:
+        rsi_state = "oversold zone"
+
+    return f"""## Automated Market Data — {market_date}
+
+### Confirmed facts
+
+- Ticker: {symbol}
+- Close: ${close_price:,.2f}
+- Daily change: {daily_change:+.2f}%
+- Volume: {int(latest["Volume"]):,}
+- MA20: ${ma20:,.2f}
+- MA60: ${ma60:,.2f}
+- OBV: {obv:,}
+- RSI14: {rsi14:.2f}
+- Data source: Yahoo Finance via yfinance
+
+### Rule-based interpretation
+
+- Price is {price_vs_ma20} MA20.
+- Price is {price_vs_ma60} MA60.
+- RSI14 is in the {rsi_state}.
+- This is a preliminary technical reading, not a confirmed institutional decision.
+- Company IR guidance, earnings, options, breadth, and current news require separate verification.
+
+### TODO
+
+- Add official IR guidance and earnings data.
+- Add options OI, IV, put/call, breadth, and sector-flow data.
+- Calculate Money In Score and Money Out Score.
+"""
