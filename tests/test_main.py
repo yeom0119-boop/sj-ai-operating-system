@@ -21,15 +21,15 @@ import main
 class MainMenuTests(unittest.TestCase):
     """Tests for main.py menu behavior."""
 
-    def test_print_menu_shows_v1_5_options(self) -> None:
-        """The menu displays the required v1.5 labels."""
+    def test_print_menu_shows_v1_6_options(self) -> None:
+        """The menu displays the required v1.6 labels."""
         buffer = io.StringIO()
 
         with patch("sys.stdout", buffer):
             main.print_menu()
 
         output = buffer.getvalue()
-        self.assertIn("SJ AI Operating System v1.5", output)
+        self.assertIn("SJ AI Operating System v1.6", output)
         self.assertIn("1. Create daily note", output)
         self.assertIn("2. Create stock note", output)
         self.assertIn("3. Read stock note", output)
@@ -43,11 +43,15 @@ class MainMenuTests(unittest.TestCase):
         self.assertIn("11. List watchlist", output)
         self.assertIn("12. Add stock to watchlist", output)
         self.assertIn("13. Remove stock from watchlist", output)
-        self.assertIn("15. Exit", output)
+        self.assertIn(
+            "15. Generate integrated analysis for all watchlist stocks",
+            output,
+        )
+        self.assertIn("16. Exit", output)
 
     def test_main_rejects_invalid_choice(self) -> None:
         """Invalid menu input prints an error and keeps running until Exit."""
-        inputs = iter(["16", "15"])
+        inputs = iter(["17", "16"])
         buffer = io.StringIO()
 
         with patch("builtins.input", lambda _prompt="": next(inputs)):
@@ -55,7 +59,7 @@ class MainMenuTests(unittest.TestCase):
                 main.main()
 
         output = buffer.getvalue()
-        self.assertIn("Error: please enter a number from 1 to 15.", output)
+        self.assertIn("Error: please enter a number from 1 to 16.", output)
         self.assertIn("Goodbye.", output)
 
 class WatchlistReportTests(unittest.TestCase):
@@ -105,7 +109,7 @@ class WatchlistReportTests(unittest.TestCase):
 
     def test_menu_option_14_runs_watchlist_reports(self) -> None:
         """Menu option 14 starts batch generation and option 15 exits."""
-        inputs = iter(["14", "15"])
+        inputs = iter(["14", "16"])
 
         with patch("builtins.input", lambda _prompt="": next(inputs)):
             with patch(
@@ -115,6 +119,84 @@ class WatchlistReportTests(unittest.TestCase):
                     main.main()
 
         batch_handler.assert_called_once_with()
+
+class IntegratedWatchlistAnalysisTests(unittest.TestCase):
+    """Tests for the full watchlist research pipeline."""
+
+    def test_empty_watchlist_stops_integrated_analysis(self) -> None:
+        """No provider is called when the watchlist is empty."""
+        buffer = io.StringIO()
+
+        with patch("main.load_watchlist", return_value=[]):
+            with patch("main.build_stock_report") as market_builder:
+                with patch("main.analyze_sec_guidance") as analyzer:
+                    with patch("sys.stdout", buffer):
+                        main.handle_generate_watchlist_integrated_analysis()
+
+        market_builder.assert_not_called()
+        analyzer.assert_not_called()
+        self.assertIn("Watchlist is empty.", buffer.getvalue())
+
+    def test_integrated_analysis_continues_after_failure(self) -> None:
+        """A failed ticker does not stop the remaining batch workflow."""
+        buffer = io.StringIO()
+
+        with patch(
+            "main.load_watchlist",
+            return_value=["MSFT", "NVDA"],
+        ):
+            with patch(
+                "main.build_stock_report",
+                side_effect=["MSFT market report", RuntimeError("market unavailable")],
+            ) as market_builder:
+                with patch(
+                    "main.build_earnings_guidance_report",
+                    side_effect=["current guidance", "previous guidance"],
+                ) as guidance_builder:
+                    with patch(
+                        "main.analyze_sec_guidance",
+                        return_value="Gemini comparison",
+                    ) as analyzer:
+                        with patch(
+                            "main.save_stock_note",
+                            return_value=("unused-path", "append"),
+                        ) as save_note:
+                            with patch(
+                                "main._relative_vault_path",
+                                return_value="Stocks/MSFT.md",
+                            ):
+                                with patch("sys.stdout", buffer):
+                                    main.handle_generate_watchlist_integrated_analysis()
+
+        output = buffer.getvalue()
+        self.assertEqual(market_builder.call_count, 2)
+        self.assertEqual(guidance_builder.call_count, 2)
+        guidance_builder.assert_any_call("MSFT", release_index=0)
+        guidance_builder.assert_any_call("MSFT", release_index=1)
+        analyzer.assert_called_once_with(
+            "MSFT",
+            (
+                "# CURRENT EARNINGS GUIDANCE\n\ncurrent guidance"
+                "\n\n# PREVIOUS EARNINGS GUIDANCE\n\nprevious guidance"
+            ),
+        )
+        self.assertEqual(save_note.call_count, 1)
+        self.assertIn("Successful: 1", output)
+        self.assertIn("Failed: 1", output)
+        self.assertIn("NVDA: market unavailable", output)
+
+    def test_menu_option_15_runs_integrated_analysis(self) -> None:
+        """Menu option 15 starts integration and option 16 exits."""
+        inputs = iter(["15", "16"])
+
+        with patch("builtins.input", lambda _prompt="": next(inputs)):
+            with patch(
+                "main.handle_generate_watchlist_integrated_analysis"
+            ) as integrated_handler:
+                with patch("sys.stdout", io.StringIO()):
+                    main.main()
+
+        integrated_handler.assert_called_once_with()
 
 
 if __name__ == "__main__":
