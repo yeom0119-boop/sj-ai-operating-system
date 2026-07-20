@@ -1,8 +1,9 @@
-"""SJ AI Operating System v1.6 command-line menu."""
+"""SJ AI Operating System v1.7 command-line menu."""
 
 import sys
 from modules.ai_analyzer import analyze_sec_guidance
 from modules.market_data import build_stock_report
+from modules.options_data import build_options_report
 from modules.watchlist import (
     add_to_watchlist,
     load_watchlist,
@@ -35,10 +36,10 @@ def _configure_stdout() -> None:
 
 
 def print_menu() -> None:
-    """Print the v1.6 main menu."""
+    """Print the v1.7 main menu."""
     print()
     print("=========================")
-    print("SJ AI Operating System v1.6")
+    print("SJ AI Operating System v1.7")
     print("=========================")
     print("1. Create daily note")
     print("2. Create stock note")
@@ -55,7 +56,8 @@ def print_menu() -> None:
     print("13. Remove stock from watchlist")
     print("14. Generate reports for all watchlist stocks")
     print("15. Generate integrated analysis for all watchlist stocks")
-    print("16. Exit")
+    print("16. Generate options reports for all watchlist stocks")
+    print("17. Exit")
     print()
 
 
@@ -363,6 +365,52 @@ def handle_generate_watchlist_reports() -> None:
         print("Failed tickers:")
         for ticker, error_message in failed:
             print(f"  - {ticker}: {error_message}")
+def handle_generate_watchlist_options_reports() -> None:
+    """Generate options reports for every watchlist ticker.
+
+    Input: tickers loaded from the persistent watchlist.
+    Output: one options-footprint report per ticker.
+    Role: update options positioning without running paid AI analysis.
+    """
+    try:
+        tickers = load_watchlist()
+    except ValueError as error:
+        print(f"\nError: {error}")
+        return
+
+    if not tickers:
+        print("\nWatchlist is empty.")
+        return
+
+    print(f"\nGenerating options reports for {len(tickers)} stocks...")
+
+    completed = []
+    failed = []
+
+    for position, ticker in enumerate(tickers, start=1):
+        print(f"\n[{position}/{len(tickers)}] Processing {ticker} options...")
+
+        try:
+            report = build_options_report(ticker)
+            saved_path, _action = save_stock_note(ticker, report)
+        except Exception as error:
+            # Continue when one ticker has no options or provider data fails.
+            failed.append((ticker, str(error)))
+            print(f"Error: {ticker} options report failed: {error}")
+            continue
+
+        completed.append(ticker)
+        print(f"Saved: {_relative_vault_path(saved_path)}")
+
+    print("\nWatchlist options report generation completed.")
+    print(f"Successful: {len(completed)}")
+    print(f"Failed: {len(failed)}")
+
+    if failed:
+        print("Failed tickers:")
+        for ticker, error_message in failed:
+            print(f"  - {ticker}: {error_message}")
+
 
 def handle_generate_watchlist_integrated_analysis() -> None:
     """Generate integrated analysis for every watchlist ticker.
@@ -393,11 +441,13 @@ def handle_generate_watchlist_integrated_analysis() -> None:
         print(f"\n[{position}/{len(tickers)}] Processing {ticker}...")
 
         try:
-            print("  1/3 Downloading market data...")
+            print("  1/4 Downloading market data...")
             market_report = build_stock_report(ticker)
 
-            print("  2/3 Downloading current and previous SEC guidance...")
-            current_guidance = build_earnings_guidance_report(
+            print("  2/4 Downloading options data...")
+            options_report = build_options_report(ticker)
+
+            print("  3/4 Downloading current and previous SEC guidance...")           current_guidance = build_earnings_guidance_report(
                 ticker,
                 release_index=0,
             )
@@ -411,7 +461,7 @@ def handle_generate_watchlist_integrated_analysis() -> None:
                 f"\n\n# PREVIOUS EARNINGS GUIDANCE\n\n{previous_guidance}"
             )
 
-            print("  3/3 Analyzing SEC guidance with Gemini...")
+            print("  4/4 Analyzing SEC guidance with Gemini...")
             gemini_analysis = analyze_sec_guidance(
                 ticker,
                 comparison_source,
@@ -420,6 +470,9 @@ def handle_generate_watchlist_integrated_analysis() -> None:
             integrated_report = (
                 "# Integrated Watchlist Analysis\n\n"
                 f"{market_report}\n\n"
+                "---\n\n"
+                "## Options Footprint\n\n"
+                f"{options_report}\n\n"
                 "---\n\n"
                 "## Current SEC Guidance\n\n"
                 f"{current_guidance}\n\n"
@@ -455,12 +508,12 @@ def handle_generate_watchlist_integrated_analysis() -> None:
 
 
 def main() -> None:
-    """Run the SJ AI Operating System v1.6 interactive menu."""
+    """Run the SJ AI Operating System v1.7 interactive menu."""
     _configure_stdout()
     while True:
         print_menu()
         try:
-            choice = input("Select (1-16): ").strip()
+            choice = input("Select (1-17): ").strip()
         except KeyboardInterrupt:
             print("\n\nInterrupted. Exiting.")
             break
@@ -498,10 +551,12 @@ def main() -> None:
         elif choice == "15":
             handle_generate_watchlist_integrated_analysis()
         elif choice == "16":
+            handle_generate_watchlist_options_reports()
+        elif choice == "17":
             print("\nGoodbye.")
             break
         else:
-            print("\nError: please enter a number from 1 to 16.")
+            print("\nError: please enter a number from 1 to 17.")
 
 
 if __name__ == "__main__":
