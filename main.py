@@ -4,6 +4,7 @@ import sys
 from modules.ai_analyzer import analyze_sec_guidance
 from modules.market_data import build_stock_report
 from modules.options_data import build_options_report
+from modules.institutional_footprint import build_footprint_report
 from modules.watchlist import (
     add_to_watchlist,
     load_watchlist,
@@ -36,10 +37,10 @@ def _configure_stdout() -> None:
 
 
 def print_menu() -> None:
-    """Print the v1.7 main menu."""
+    """Print the v1.8 main menu."""
     print()
     print("=========================")
-    print("SJ AI Operating System v1.7")
+    print("SJ AI Operating System v1.8")
     print("=========================")
     print("1. Create daily note")
     print("2. Create stock note")
@@ -57,7 +58,8 @@ def print_menu() -> None:
     print("14. Generate reports for all watchlist stocks")
     print("15. Generate integrated analysis for all watchlist stocks")
     print("16. Generate options reports for all watchlist stocks")
-    print("17. Exit")
+    print("17. Generate footprint radar for all watchlist stocks")
+    print("18. Exit")
     print()
 
 
@@ -411,6 +413,52 @@ def handle_generate_watchlist_options_reports() -> None:
         for ticker, error_message in failed:
             print(f"  - {ticker}: {error_message}")
 
+def handle_generate_watchlist_footprint_reports() -> None:
+    """Generate footprint-radar reports for every watchlist ticker.
+
+    Input: tickers loaded from the persistent watchlist.
+    Output: one Money In/Out report saved to each stock note.
+    Role: update probability-based institutional-footprint signals.
+    """
+    try:
+        tickers = load_watchlist()
+    except ValueError as error:
+        print(f"\nError: {error}")
+        return
+
+    if not tickers:
+        print("\nWatchlist is empty.")
+        return
+
+    print(f"\nGenerating footprint reports for {len(tickers)} stocks...")
+
+    completed = []
+    failed = []
+
+    for position, ticker in enumerate(tickers, start=1):
+        print(f"\n[{position}/{len(tickers)}] Processing {ticker} footprint...")
+
+        try:
+            report = build_footprint_report(ticker)
+            saved_path, _action = save_stock_note(ticker, report)
+        except Exception as error:
+            # Continue so one provider failure does not stop the watchlist.
+            failed.append((ticker, str(error)))
+            print(f"Error: {ticker} footprint report failed: {error}")
+            continue
+
+        completed.append(ticker)
+        print(f"Saved: {_relative_vault_path(saved_path)}")
+
+    print("\nWatchlist footprint report generation completed.")
+    print(f"Successful: {len(completed)}")
+    print(f"Failed: {len(failed)}")
+
+    if failed:
+        print("Failed tickers:")
+        for ticker, error_message in failed:
+            print(f"  - {ticker}: {error_message}")
+
 
 def handle_generate_watchlist_integrated_analysis() -> None:
     """Generate integrated analysis for every watchlist ticker.
@@ -447,7 +495,8 @@ def handle_generate_watchlist_integrated_analysis() -> None:
             print("  2/4 Downloading options data...")
             options_report = build_options_report(ticker)
 
-            print("  3/4 Downloading current and previous SEC guidance...")           current_guidance = build_earnings_guidance_report(
+            print("  3/4 Downloading current and previous SEC guidance...")           
+            current_guidance = build_earnings_guidance_report(
                 ticker,
                 release_index=0,
             )
@@ -513,7 +562,7 @@ def main() -> None:
     while True:
         print_menu()
         try:
-            choice = input("Select (1-17): ").strip()
+            choice = input("Select (1-18): ").strip()
         except KeyboardInterrupt:
             print("\n\nInterrupted. Exiting.")
             break
@@ -553,10 +602,12 @@ def main() -> None:
         elif choice == "16":
             handle_generate_watchlist_options_reports()
         elif choice == "17":
+            handle_generate_watchlist_footprint_reports()
+        elif choice == "18":
             print("\nGoodbye.")
             break
         else:
-            print("\nError: please enter a number from 1 to 17.")
+            print("\nError: please enter a number from 1 to 18.")
 
 
 if __name__ == "__main__":

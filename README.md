@@ -80,9 +80,36 @@ python main.py
 7. List recent notes
 8. Generate automated stock report
 9. Generate official SEC filings report
-10. Exit
+10. Generate Gemini SEC guidance analysis
+11. List watchlist
+12. Add stock to watchlist
+13. Remove stock from watchlist
+14. Generate reports for all watchlist stocks
+15. Generate integrated analysis for all watchlist stocks
+16. Generate options reports for all watchlist stocks
+17. Generate footprint radar for all watchlist stocks
+18. Exit
 
-## Automated Stock Report
+## Automated Stock Report## Menu
+
+1. Create daily note
+2. Create stock note
+3. Read stock note
+4. List stock notes
+5. Add stock analysis
+6. Search all notes
+7. List recent notes
+8. Generate automated stock report
+9. Generate official SEC filings report
+10. Generate Gemini SEC guidance analysis
+11. List watchlist
+12. Add stock to watchlist
+13. Remove stock from watchlist
+14. Generate reports for all watchlist stocks
+15. Generate integrated analysis for all watchlist stocks
+16. Generate options reports for all watchlist stocks
+17. Generate footprint radar for all watchlist stocks
+18. Exit
 
 Choose menu option 8 and enter a ticker such as:
 
@@ -112,22 +139,46 @@ The system will:
 4. Create official SEC document links
 5. Append the report to the existing Obsidian stock note
 
+## Institution Footprint Radar
+
+Choose menu option 17 to generate footprint reports for every watchlist stock.
+
+The radar combines:
+
+- Price position versus MA20 and MA60
+- OBV direction
+- Volume versus the 20-day average
+- RSI14 momentum
+- Put/Call open-interest ratio
+- Put/Call volume ratio
+
+The system creates separate Money In and Money Out scores, shows every score contribution, and appends the Markdown report to each local Obsidian stock note.
+
+These scores are probability-based research signals. Option open interest does not reveal whether contracts were bought or sold, so the radar does not confirm institutional transactions.
 ## Project Structure
 
 ```text
 modules/
     __init__.py
-    obsidian.py
-    market_data.py
+    ai_analyzer.py
     footprint.py
+    institutional_footprint.py
+    market_data.py
+    obsidian.py
+    options_data.py
     sec_filings.py
+    watchlist.py
 
 tests/
-    test_main.py
-    test_obsidian.py
-    test_market_data.py
+    __init__.py
     test_footprint.py
+    test_institutional_footprint.py
+    test_main.py
+    test_market_data.py
+    test_obsidian.py
+    test_options_data.py
     test_sec_filings.py
+    test_watchlist.py
 
 vault/
     Daily/
@@ -151,15 +202,18 @@ README.md
 
 ## Current Limitations
 
-The v1.4 system does not yet automatically:
+The v1.8 system does not yet automatically:
 
-- Summarize extracted SEC filing contents with an AI engine
-- Collect options OI and OI changes
-- Collect IV, IV Rank, and IV Percentile
-- Collect put/call and gamma data
-- Collect market breadth and sector flows
-- Collect news from multiple verified sources
-- Run cross-analysis through multiple AI engines
+- Collect day-to-day options OI changes
+- Determine whether option contracts were bought or sold
+- Collect IV, IV Rank, IV Percentile, and gamma exposure
+- Normalize partial intraday volume against elapsed session time
+- Collect market breadth, A/D, VWAP, and sector flows
+- Collect short-interest and verified multi-source news data
+- Run cross-analysis through ChatGPT, Gemini, Claude, and local AI together
+- Confirm actual institutional buying or selling
+
+Money In and Money Out scores are preliminary probability signals, not confirmed institutional transactions.
 
 ## Tests
 
