@@ -3,6 +3,11 @@
 import sys
 from modules.ai_analyzer import analyze_sec_guidance
 from modules.market_data import build_stock_report
+from modules.watchlist import (
+    add_to_watchlist,
+    load_watchlist,
+    remove_from_watchlist,
+)
 from modules.sec_filings import (
     build_earnings_guidance_report,
     build_filing_content_report,
@@ -45,7 +50,10 @@ def print_menu() -> None:
     print("8. Generate automated stock report")
     print("9. Generate official SEC filings report")
     print("10. Generate Gemini SEC guidance analysis")
-    print("11. Exit")
+    print("11. List watchlist")
+    print("12. Add stock to watchlist")
+    print("13. Remove stock from watchlist")
+    print("14. Exit")
     print()
 
 
@@ -252,14 +260,69 @@ def handle_generate_gemini_guidance_analysis() -> None:
         print("Gemini SEC guidance analysis appended to stock note.")
     print(f"Location: {_relative_vault_path(saved_path)}")
 
+def handle_list_watchlist() -> None:
+    """Display every ticker registered in the watchlist."""
+    try:
+        tickers = load_watchlist()
+    except ValueError as error:
+        print(f"\nError: {error}")
+        return
 
+    print()
+    if not tickers:
+        print("Watchlist is empty.")
+        return
+
+    print(f"Watchlist ({len(tickers)} stocks):")
+    for ticker in tickers:
+        print(f"  - {ticker}")
+
+
+def handle_add_watchlist() -> None:
+    """Add a user-entered ticker to the persistent watchlist."""
+    ticker = input("Enter stock ticker to add: ").strip()
+    if not ticker:
+        print("\nError: ticker cannot be empty.")
+        return
+
+    try:
+        normalized, added = add_to_watchlist(ticker)
+    except ValueError as error:
+        print(f"\nError: {error}")
+        return
+
+    print()
+    if added:
+        print(f"{normalized} added to watchlist.")
+    else:
+        print(f"{normalized} is already in watchlist.")
+
+
+def handle_remove_watchlist() -> None:
+    """Remove a user-entered ticker from the persistent watchlist."""
+    ticker = input("Enter stock ticker to remove: ").strip()
+    if not ticker:
+        print("\nError: ticker cannot be empty.")
+        return
+
+    try:
+        normalized, removed = remove_from_watchlist(ticker)
+    except ValueError as error:
+        print(f"\nError: {error}")
+        return
+
+    print()
+    if removed:
+        print(f"{normalized} removed from watchlist.")
+    else:
+        print(f"{normalized} was not found in watchlist.")
 def main() -> None:
     """Run the SJ AI Operating System v1.4 interactive menu."""
     _configure_stdout()
     while True:
         print_menu()
         try:
-            choice = input("Select (1-11): ").strip()
+            choice = input("Select (1-14): ").strip()
         except KeyboardInterrupt:
             print("\n\nInterrupted. Exiting.")
             break
@@ -287,10 +350,16 @@ def main() -> None:
         elif choice == "10":
             handle_generate_gemini_guidance_analysis()
         elif choice == "11":
+            handle_list_watchlist()
+        elif choice == "12":
+            handle_add_watchlist()
+        elif choice == "13":
+            handle_remove_watchlist()
+        elif choice == "14":
             print("\nGoodbye.")
             break
         else:
-            print("\nError: please enter a number from 1 to 11.")
+            print("\nError: please enter a number from 1 to 14.")
 
 
 if __name__ == "__main__":

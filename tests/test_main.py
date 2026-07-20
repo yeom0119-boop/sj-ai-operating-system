@@ -40,11 +40,14 @@ class MainMenuTests(unittest.TestCase):
         self.assertIn("8. Generate automated stock report", output)
         self.assertIn("9. Generate official SEC filings report", output)
         self.assertIn("10. Generate Gemini SEC guidance analysis", output)
-        self.assertIn("11. Exit", output)
+        self.assertIn("11. List watchlist", output)
+        self.assertIn("12. Add stock to watchlist", output)
+        self.assertIn("13. Remove stock from watchlist", output)
+        self.assertIn("14. Exit", output)
 
     def test_main_rejects_invalid_choice(self) -> None:
         """Invalid menu input prints an error and keeps running until Exit."""
-        inputs = iter(["12", "11"])
+        inputs = iter(["15", "14"])
         buffer = io.StringIO()
 
         with patch("builtins.input", lambda _prompt="": next(inputs)):
@@ -52,7 +55,7 @@ class MainMenuTests(unittest.TestCase):
                 main.main()
 
         output = buffer.getvalue()
-        self.assertIn("Error: please enter a number from 1 to 11.", output)
+        self.assertIn("Error: please enter a number from 1 to 14.", output)
         self.assertIn("Goodbye.", output)
 
 
