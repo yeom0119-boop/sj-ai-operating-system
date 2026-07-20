@@ -1,4 +1,4 @@
-"""SJ AI Operating System v1.4 command-line menu."""
+"""SJ AI Operating System v1.5 command-line menu."""
 
 import sys
 from modules.ai_analyzer import analyze_sec_guidance
@@ -35,10 +35,10 @@ def _configure_stdout() -> None:
 
 
 def print_menu() -> None:
-    """Print the v1.4 main menu."""
+    """Print the v1.5 main menu."""
     print()
     print("=========================")
-    print("SJ AI Operating System v1.4")
+    print("SJ AI Operating System v1.5")
     print("=========================")
     print("1. Create daily note")
     print("2. Create stock note")
@@ -53,7 +53,8 @@ def print_menu() -> None:
     print("11. List watchlist")
     print("12. Add stock to watchlist")
     print("13. Remove stock from watchlist")
-    print("14. Exit")
+    print("14. Generate reports for all watchlist stocks")
+    print("15. Exit")
     print()
 
 
@@ -316,13 +317,60 @@ def handle_remove_watchlist() -> None:
         print(f"{normalized} removed from watchlist.")
     else:
         print(f"{normalized} was not found in watchlist.")
+def handle_generate_watchlist_reports() -> None:
+    """Generate automated market reports for every watchlist ticker.
+
+    Input: tickers loaded from the persistent watchlist.
+    Output: one saved stock report per ticker and a completion summary.
+    Role: update all tracked stocks without repeated manual ticker entry.
+    """
+    try:
+        tickers = load_watchlist()
+    except ValueError as error:
+        print(f"\nError: {error}")
+        return
+
+    if not tickers:
+        print("\nWatchlist is empty.")
+        return
+
+    print(f"\nGenerating reports for {len(tickers)} watchlist stocks...")
+
+    completed = []
+    failed = []
+
+    for position, ticker in enumerate(tickers, start=1):
+        print(f"\n[{position}/{len(tickers)}] Processing {ticker}...")
+
+        try:
+            report = build_stock_report(ticker)
+            saved_path, _action = save_stock_note(ticker, report)
+        except Exception as error:
+            # Continue processing other stocks when one provider request fails.
+            failed.append((ticker, str(error)))
+            print(f"Error: {ticker} report could not be created: {error}")
+            continue
+
+        completed.append(ticker)
+        print(f"Saved: {_relative_vault_path(saved_path)}")
+
+    print("\nWatchlist report generation completed.")
+    print(f"Successful: {len(completed)}")
+    print(f"Failed: {len(failed)}")
+
+    if failed:
+        print("Failed tickers:")
+        for ticker, error_message in failed:
+            print(f"  - {ticker}: {error_message}")
+
+
 def main() -> None:
-    """Run the SJ AI Operating System v1.4 interactive menu."""
+    """Run the SJ AI Operating System v1.5 interactive menu."""
     _configure_stdout()
     while True:
         print_menu()
         try:
-            choice = input("Select (1-14): ").strip()
+            choice = input("Select (1-15): ").strip()
         except KeyboardInterrupt:
             print("\n\nInterrupted. Exiting.")
             break
@@ -356,10 +404,12 @@ def main() -> None:
         elif choice == "13":
             handle_remove_watchlist()
         elif choice == "14":
+            handle_generate_watchlist_reports()
+        elif choice == "15":
             print("\nGoodbye.")
             break
         else:
-            print("\nError: please enter a number from 1 to 14.")
+            print("\nError: please enter a number from 1 to 15.")
 
 
 if __name__ == "__main__":
