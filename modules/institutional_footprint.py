@@ -94,6 +94,7 @@ def calculate_footprint_scores(
         "MA60",
         "VOLUME20",
         "OBV",
+        "AD",
         "RSI14",
     ]
     usable = indicator_data.dropna(subset=required_columns)
@@ -111,14 +112,27 @@ def calculate_footprint_scores(
     volume20 = _safe_float(latest["VOLUME20"])
     obv = _safe_float(latest["OBV"])
     earlier_obv = _safe_float(earlier["OBV"])
+    ad = _safe_float(latest["AD"])
+    earlier_ad = _safe_float(earlier["AD"])
     rsi14 = _safe_float(latest["RSI14"])
 
-    if None in (close, volume, ma20, ma60, volume20, obv, earlier_obv, rsi14):
+    if None in (
+        close,
+        volume,
+        ma20,
+        ma60,
+        volume20,
+        obv,
+        earlier_obv,
+        ad,
+        earlier_ad,
+        rsi14,
+    ):
         raise ValueError("required indicator values are missing")
 
     volume_ratio = volume / volume20 if volume20 > 0 else None
     obv_change = obv - earlier_obv
-
+    ad_change = ad - earlier_ad
     put_call_oi = _average_expiration_ratio(
         options_snapshot,
         "put_call_oi_ratio",
@@ -149,44 +163,54 @@ def calculate_footprint_scores(
         money_out_score += 15
         _add_signal(signals, "OUT", 15, "MA20 is below MA60")
 
-    available_weight += 20
+    available_weight += 15
     if obv_change > 0:
-        money_in_score += 20
-        _add_signal(signals, "IN", 20, "OBV increased over the comparison period")
+        money_in_score += 15
+        _add_signal(signals, "IN", 15, "OBV increased over the comparison period")
     elif obv_change < 0:
-        money_out_score += 20
-        _add_signal(signals, "OUT", 20, "OBV decreased over the comparison period")
+        money_out_score += 15
+        _add_signal(signals, "OUT", 15, "OBV decreased over the comparison period")
     else:
         _add_signal(signals, "NEUTRAL", 0, "OBV was unchanged")
 
     available_weight += 15
+    if ad_change > 0:
+        money_in_score += 15
+        _add_signal(signals, "IN", 15, "A/D increased over the comparison period")
+    elif ad_change < 0:
+        money_out_score += 15
+        _add_signal(signals, "OUT", 15, "A/D decreased over the comparison period")
+    else:
+        _add_signal(signals, "NEUTRAL", 0, "A/D was unchanged")
+
+    available_weight += 10
     if volume_ratio is not None and volume_ratio >= 1.2:
         if close >= ma20:
-            money_in_score += 15
+            money_in_score += 10
             _add_signal(
                 signals,
                 "IN",
-                15,
+                10,
                 "High volume occurred while price was above MA20",
             )
         else:
-            money_out_score += 15
+            money_out_score += 10
             _add_signal(
                 signals,
                 "OUT",
-                15,
+                10,
                 "High volume occurred while price was below MA20",
             )
     else:
         _add_signal(signals, "NEUTRAL", 0, "Volume was not strongly expanded")
 
-    available_weight += 15
+    available_weight += 10
     if 55 <= rsi14 <= 70:
-        money_in_score += 15
-        _add_signal(signals, "IN", 15, "RSI14 is in the positive momentum zone")
+        money_in_score += 10
+        _add_signal(signals, "IN", 10, "RSI14 is in the positive momentum zone")
     elif rsi14 < 45:
-        money_out_score += 15
-        _add_signal(signals, "OUT", 15, "RSI14 shows weak momentum")
+        money_out_score += 10
+        _add_signal(signals, "OUT", 10, "RSI14 shows weak momentum")
     elif rsi14 > 75:
         money_out_score += 10
         _add_signal(
@@ -235,6 +259,7 @@ def calculate_footprint_scores(
                 round(volume_ratio, 2) if volume_ratio is not None else None
             ),
             "obv_change": round(obv_change, 2),
+            "ad_change": round(ad_change, 2),
             "rsi14": round(rsi14, 2),
             "put_call_oi_ratio": (
                 round(put_call_oi, 2) if put_call_oi is not None else None
@@ -298,6 +323,7 @@ def build_footprint_report(
 | MA60 | {inputs["ma60"]} |
 | Volume / 20-day average | {inputs["volume_ratio"]} |
 | OBV change | {inputs["obv_change"]} |
+| A/D change | {inputs["ad_change"]} |
 | RSI14 | {inputs["rsi14"]} |
 | Put/Call OI ratio | {inputs["put_call_oi_ratio"]} |
 | Put/Call volume ratio | {inputs["put_call_volume_ratio"]} |

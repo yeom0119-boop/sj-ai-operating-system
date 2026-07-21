@@ -23,11 +23,13 @@ class MarketDataTests(unittest.TestCase):
             normalize_ticker("../NVDA")
 
     def test_calculate_indicators_adds_expected_columns(self) -> None:
-        """MA20, MA60, OBV, and RSI14 are calculated from OHLCV data."""
+        """Moving averages, OBV, A/D, and RSI14 are calculated from OHLCV data."""
         data = pd.DataFrame(
             {
-                "Close": list(range(1, 61)),
-                "Volume": [100] * 60,
+        "High": [value + 2 for value in range(1, 61)],
+        "Low": [value - 1 for value in range(1, 61)],
+        "Close": list(range(1, 61)),
+        "Volume": [100] * 60,
             }
         )
 
@@ -39,6 +41,8 @@ class MarketDataTests(unittest.TestCase):
         self.assertIn("MA200", result.columns)
         self.assertIn("VOLUME20", result.columns)
         self.assertIn("OBV", result.columns)
+        self.assertIn("AD", result.columns)
+        self.assertAlmostEqual(result["AD"].iloc[-1], -2000.0)
         self.assertIn("RSI14", result.columns)
         self.assertAlmostEqual(result["MA20"].iloc[-1], 50.5)
         self.assertAlmostEqual(result["MA60"].iloc[-1], 30.5)

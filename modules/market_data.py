@@ -46,7 +46,7 @@ def fetch_stock_history(ticker: str, period: str = "1y") -> pd.DataFrame:
 
 
 def calculate_indicators(data: pd.DataFrame) -> pd.DataFrame:
-    """Calculate MA20, MA60, OBV, and RSI14.
+    """Calculate moving averages, volume, OBV, A/D, and RSI14.
 
     Input:
         data: Historical OHLCV market data.
@@ -66,7 +66,17 @@ def calculate_indicators(data: pd.DataFrame) -> pd.DataFrame:
         lambda change: 1 if change > 0 else -1 if change < 0 else 0
     )
     result["OBV"] = (price_direction * result["Volume"]).cumsum()
-
+    # A/D combines the closing location within the daily range with volume.
+    # A zero-range day is treated as neutral to prevent division by zero.
+    price_range = result["High"] - result["Low"]
+    money_flow_multiplier = (
+        (
+            (result["Close"] - result["Low"])
+            - (result["High"] - result["Close"])
+        )
+        / price_range
+    ).where(price_range != 0, 0.0)
+    result["AD"] = (money_flow_multiplier * result["Volume"]).cumsum()
     price_change = result["Close"].diff()
     gains = price_change.clip(lower=0)
     losses = -price_change.clip(upper=0)

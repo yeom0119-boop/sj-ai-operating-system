@@ -15,8 +15,10 @@ class FootprintScoreTests(unittest.TestCase):
         """Rising prices, OBV, and strong volume favor Money In."""
         data = pd.DataFrame(
             {
-                "Close": list(range(1, 201)),
-                "Volume": ([100] * 199) + [150],
+            "High": [value + 1 for value in range(1, 201)],
+            "Low": [value - 1 for value in range(1, 201)],
+            "Close": list(range(1, 201)),
+            "Volume": ([100] * 199) + [150],
             }
         )
         indicators = calculate_indicators(data)
@@ -30,8 +32,10 @@ class FootprintScoreTests(unittest.TestCase):
         """Falling prices, OBV, weak RSI, and strong volume favor Money Out."""
         data = pd.DataFrame(
             {
-                "Close": list(range(200, 0, -1)),
-                "Volume": ([100] * 199) + [150],
+            "High": [value + 1 for value in range(200, 0, -1)],
+            "Low": [value - 1 for value in range(200, 0, -1)],
+            "Close": list(range(200, 0, -1)),
+            "Volume": ([100] * 199) + [150],
             }
         )
         indicators = calculate_indicators(data)

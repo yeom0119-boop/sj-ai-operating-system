@@ -18,6 +18,7 @@ def build_indicator_data(
     volume20: float,
     obv_values: list[float],
     rsi14: float,
+    ad_values: list[float] | None = None,
 ) -> pd.DataFrame:
     """Build controlled indicator rows for score tests.
 
@@ -25,6 +26,8 @@ def build_indicator_data(
     Output: DataFrame matching calculate_indicators() output.
     Role: test scoring without downloading live market data.
     """
+    if ad_values is None:
+        ad_values = obv_values
     return pd.DataFrame(
         {
             "Close": [close] * len(obv_values),
@@ -33,6 +36,7 @@ def build_indicator_data(
             "MA60": [ma60] * len(obv_values),
             "VOLUME20": [volume20] * len(obv_values),
             "OBV": obv_values,
+            "AD": ad_values,
             "RSI14": [rsi14] * len(obv_values),
         }
     )
@@ -117,7 +121,32 @@ class FootprintScoreTests(unittest.TestCase):
 
         self.assertEqual(result["data_coverage"], 80)
         self.assertGreater(result["money_in_score"], result["money_out_score"])
+    def test_ad_decline_adds_money_out_evidence(self) -> None:
+        """Falling A/D adds an outflow warning despite other bullish signals."""
+        indicators = build_indicator_data(
+            close=110,
+            ma20=105,
+            ma60=100,
+            volume=150,
+            volume20=100,
+            obv_values=[100, 110, 120, 130, 140, 160],
+            rsi14=60,
+            ad_values=[160, 150, 140, 130, 120, 100],
+        )
+        options = build_options_snapshot(0.5, 0.6)
 
+        result = calculate_footprint_scores(indicators, options)
+
+        self.assertEqual(result["money_in_score"], 85)
+        self.assertEqual(result["money_out_score"], 15)
+        self.assertEqual(result["market_inputs"]["ad_change"], -60)
+        self.assertTrue(
+            any(
+                signal["direction"] == "OUT"
+                and "A/D decreased" in signal["reason"]
+                for signal in result["signals"]
+            )
+        )
     def test_empty_indicator_data_raises_error(self) -> None:
         """The scorer rejects input without usable indicator rows."""
         indicators = pd.DataFrame(
@@ -128,6 +157,7 @@ class FootprintScoreTests(unittest.TestCase):
                 "MA60",
                 "VOLUME20",
                 "OBV",
+                "AD",
                 "RSI14",
             ]
         )
@@ -170,6 +200,7 @@ class FootprintReportTests(unittest.TestCase):
                 "ma60": 208.90,
                 "volume_ratio": 1.10,
                 "obv_change": 1000,
+                "ad_change": 500,
                 "rsi14": 59.10,
                 "put_call_oi_ratio": 0.70,
                 "put_call_volume_ratio": 0.58,
