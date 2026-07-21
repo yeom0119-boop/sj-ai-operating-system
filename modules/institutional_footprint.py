@@ -287,7 +287,8 @@ def build_footprint_report(
 - **Money Out Score**: {result["money_out_score"]}/100
 - **Data coverage**: {result["data_coverage"]}%
 - **Source**: Yahoo Finance via yfinance
-
+- **Analyzed option expirations**: {options_snapshot["analyzed_expirations"]} of {options_snapshot["expiration_count"]}
+- **Option ratio method**: Simple average of per-expiration ratios
 ## Market inputs
 
 | Indicator | Value |
