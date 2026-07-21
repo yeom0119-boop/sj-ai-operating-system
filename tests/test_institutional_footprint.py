@@ -1,10 +1,13 @@
 """Tests for the institutional-footprint scoring module."""
 
 import unittest
-
+from unittest.mock import patch
 import pandas as pd
 
-from modules.institutional_footprint import calculate_footprint_scores
+from modules.institutional_footprint import (
+    build_footprint_report,
+    calculate_footprint_scores,
+)
 
 
 def build_indicator_data(
@@ -135,6 +138,59 @@ class FootprintScoreTests(unittest.TestCase):
                 {"ticker": "TEST", "expirations": []},
             )
 
+class FootprintReportTests(unittest.TestCase):
+    """Verify the Markdown footprint report output."""
 
+    @patch("modules.institutional_footprint.calculate_footprint_scores")
+    @patch("modules.institutional_footprint.collect_options_snapshot")
+    @patch("modules.institutional_footprint.calculate_indicators")
+    @patch("modules.institutional_footprint.fetch_stock_history")
+    def test_report_shows_option_expiration_scope(
+        self,
+        mock_fetch_history,
+        mock_calculate_indicators,
+        mock_collect_options,
+        mock_calculate_scores,
+    ) -> None:
+        """Report shows analyzed expirations and the ratio method."""
+        mock_fetch_history.return_value = object()
+        mock_calculate_indicators.return_value = object()
+        mock_collect_options.return_value = {
+            "analyzed_expirations": 3,
+            "expiration_count": 23,
+        }
+        mock_calculate_scores.return_value = {
+            "ticker": "NVDA",
+            "money_in_score": 60,
+            "money_out_score": 15,
+            "data_coverage": 100,
+            "market_inputs": {
+                "close": 203.28,
+                "ma20": 201.87,
+                "ma60": 208.90,
+                "volume_ratio": 1.10,
+                "obv_change": 1000,
+                "rsi14": 59.10,
+                "put_call_oi_ratio": 0.70,
+                "put_call_volume_ratio": 0.58,
+            },
+            "signals": [],
+            "warning": "Research signal only.",
+        }
+
+        report = build_footprint_report("NVDA", expiration_limit=3)
+
+        self.assertIn(
+            "**Analyzed option expirations**: 3 of 23",
+            report,
+        )
+        self.assertIn(
+            "**Option ratio method**: Simple average of per-expiration ratios",
+            report,
+        )
+        mock_collect_options.assert_called_once_with(
+            "NVDA",
+            expiration_limit=3,
+        )
 if __name__ == "__main__":
     unittest.main()
