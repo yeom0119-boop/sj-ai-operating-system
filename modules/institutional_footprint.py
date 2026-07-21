@@ -280,7 +280,7 @@ def build_footprint_report(
 
     signals_text = "\n".join(signal_lines)
 
-    return f"""# Institution Footprint Radar
+    return f"""# Institutional Footprint Radar
 
 - **Ticker**: {result["ticker"]}
 - **Money In Score**: {result["money_in_score"]}/100

@@ -327,7 +327,7 @@ def save_stock_note(stock: str, content: str) -> tuple[Path, str]:
     new_entry = f"""
 ---
 
-## Analysis Entry — {created_at}
+## Analysis Entry - {created_at}
 
 {content}
 """
@@ -347,7 +347,7 @@ def save_stock_note(stock: str, content: str) -> tuple[Path, str]:
 - Created: {created_at}
 - Project: SJ AI Operating System
 
-## Analysis Entry — {created_at}
+## Analysis Entry - {created_at}
 
 {content}
 """
