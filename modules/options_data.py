@@ -263,10 +263,8 @@ def build_options_report(
             f"{snapshot['analyzed_expirations']} "
             f"of {snapshot['expiration_count']}"
         ),
-        f"- **Source**: {snapshot['source']}",
-        f"- **Collected at (UTC)**: {snapshot.get('collected_at', 'N/A')}",
-        f"- **Source**: {snapshot['source']}",
-        f"- **Collected at (UTC)**: {snapshot.get('collected_at', 'N/A')}",
+            f"- **Source**: {snapshot['source']}",
+            f"- **Collected at (UTC)**: {snapshot.get('collected_at', 'N/A')}",
         (
             f"- **Data status**: "
             f"{snapshot.get('data_status', 'N/A')}"
