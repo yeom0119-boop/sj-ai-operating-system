@@ -3,7 +3,14 @@
 import unittest
 from unittest.mock import patch
 
+"""Tests for official SEC filing metadata collection."""
+
+import unittest
+from unittest.mock import patch
+
 from modules.sec_filings import (
+    build_earnings_guidance_report,
+    build_filing_content_report,
     build_sec_filings_report,
     get_recent_filings,
     lookup_company,
@@ -109,7 +116,135 @@ class SecFilingsTests(unittest.TestCase):
         self.assertIn("Official SEC Filings", report)
         self.assertIn("confirmed primary-source fact", report)
         self.assertIn("[Official document]", report)
+        self.assertIn("Collected at (UTC):", report)
+        self.assertIn(
+            "Document status: Official SEC filing metadata",
+            report,
+        )
+        def test_guidance_report_includes_metadata(self) -> None:
+            """Official earnings-guidance output includes source metadata."""
+            filing = {
+                "ticker": "NVDA",
+                "company_name": "NVIDIA CORP",
+                "filing_date": "2026-07-02",
+                "form": "8-K",
+                "document_url": "https://www.sec.gov/example.htm",
+                "accession_number": "0001045810-26-000060",
+            }
 
+        with (
+            patch(
+                "modules.sec_filings.get_recent_filings",
+                return_value=[filing],
+            ),
+            patch(
+                "modules.sec_filings.get_filing_exhibit_urls",
+                return_value=["https://www.sec.gov/exhibit.htm"],
+            ),
+            patch(
+                "modules.sec_filings.download_filing_text",
+                return_value="Official guidance text.",
+            ),
+            patch(
+                "modules.sec_filings.find_keyword_excerpts",
+                return_value=[],
+            ),
+            patch(
+                "modules.sec_filings._get_collected_at_utc",
+                return_value="2026-07-22 10:00:00 UTC",
+            ),
+        ):
+            report = build_earnings_guidance_report("NVDA")
 
+        self.assertIn(
+            "Collected at (UTC): 2026-07-22 10:00:00 UTC",
+            report,
+        )
+        self.assertIn(
+            "Document status: Official SEC earnings exhibit",
+            report,
+        )
+    def test_guidance_report_includes_metadata(self) -> None:
+        """Official earnings-guidance output includes source metadata."""
+        filing = {
+            "ticker": "NVDA",
+            "company_name": "NVIDIA CORP",
+            "filing_date": "2026-07-02",
+            "form": "8-K",
+            "document_url": "https://www.sec.gov/example.htm",
+            "accession_number": "0001045810-26-000060",
+        }
+
+        with (
+            patch(
+                "modules.sec_filings.get_recent_filings",
+                return_value=[filing],
+            ),
+            patch(
+                "modules.sec_filings.get_filing_exhibit_urls",
+                return_value=["https://www.sec.gov/exhibit.htm"],
+            ),
+            patch(
+                "modules.sec_filings.download_filing_text",
+                return_value="Official guidance text.",
+            ),
+            patch(
+                "modules.sec_filings.find_keyword_excerpts",
+                return_value=[],
+            ),
+            patch(
+                "modules.sec_filings._get_collected_at_utc",
+                return_value="2026-07-22 10:00:00 UTC",
+            ),
+        ):
+            report = build_earnings_guidance_report("NVDA")
+
+        self.assertIn(
+            "Collected at (UTC): 2026-07-22 10:00:00 UTC",
+            report,
+        )
+        self.assertIn(
+            "Document status: Official SEC earnings exhibit",
+            report,
+        )
+    def test_filing_content_report_includes_metadata(self) -> None:
+        """Official filing-content output includes source metadata."""
+        filing = {
+            "ticker": "NVDA",
+            "company_name": "NVIDIA CORP",
+            "filing_date": "2026-05-20",
+            "report_date": "2026-04-26",
+            "form": "10-Q",
+            "document_url": "https://www.sec.gov/example.htm",
+        }
+
+        with (
+            patch(
+                "modules.sec_filings.get_recent_filings",
+                return_value=[filing],
+            ),
+            patch(
+                "modules.sec_filings.download_filing_text",
+                return_value="Official filing text.",
+            ),
+            patch(
+                "modules.sec_filings.find_keyword_excerpts",
+                return_value=[],
+            ),
+            patch(
+                "modules.sec_filings._get_collected_at_utc",
+                return_value="2026-07-22 10:00:00 UTC",
+            ),
+        ):
+            report = build_filing_content_report("NVDA")
+
+        self.assertIn(
+            "Collected at (UTC): 2026-07-22 10:00:00 UTC",
+            report,
+        )
+        self.assertIn(
+            "Document status: Official SEC filing document",
+            report,
+        )
 if __name__ == "__main__":
     unittest.main()

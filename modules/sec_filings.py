@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import re
+from datetime import datetime, timezone
 from urllib.parse import urljoin
 from functools import lru_cache
 from typing import Iterable
@@ -16,6 +17,11 @@ SEC_TICKERS_URL = "https://www.sec.gov/files/company_tickers.json"
 SEC_SUBMISSIONS_URL = "https://data.sec.gov/submissions/CIK{cik}.json"
 SEC_ARCHIVES_URL = "https://www.sec.gov/Archives/edgar/data"
 
+def _get_collected_at_utc() -> str:
+    """Return the current UTC collection time for report metadata."""
+    return datetime.now(timezone.utc).strftime(
+        "%Y-%m-%d %H:%M:%S UTC"
+    )
 
 def get_sec_user_agent() -> str:
     """Read the locally configured SEC identification string.
@@ -150,7 +156,8 @@ def build_sec_filings_report(ticker: str, limit: int = 10) -> str:
     """Create an Obsidian-ready Markdown list of official SEC filings."""
     company = lookup_company(ticker)
     filings = get_recent_filings(ticker, limit=limit)
-
+    collected_at = _get_collected_at_utc()
+    
     lines = [
         "## Official SEC Filings",
         "",
@@ -160,6 +167,8 @@ def build_sec_filings_report(ticker: str, limit: int = 10) -> str:
         f"- Company: {company['company_name']}",
         f"- SEC CIK: {company['cik']}",
         "- Source: U.S. Securities and Exchange Commission EDGAR",
+        f"- Collected at (UTC): {collected_at}",
+        "- Document status: Official SEC filing metadata",
         "",
         "### Recent filings",
         "",
@@ -400,7 +409,7 @@ def build_earnings_guidance_report(
         context_chars=900,
         max_excerpts=10,
     )
-
+    collected_at = _get_collected_at_utc()
     lines = [
         "## Official Earnings Guidance Review",
         "",
@@ -411,6 +420,9 @@ def build_earnings_guidance_report(
         f"- Filing date: {selected_filing['filing_date']}",
         f"- Form: {selected_filing['form']}",
         f"- [Official SEC earnings exhibit]({exhibit_url})",
+        "- Source: U.S. Securities and Exchange Commission EDGAR",
+        f"- Collected at (UTC): {collected_at}",
+        "- Document status: Official SEC earnings exhibit",
         "",
         "### Management guidance candidates",
         "",
@@ -485,7 +497,8 @@ def build_filing_content_report(
         ),
         max_excerpts=6,
     )
-
+    collected_at = _get_collected_at_utc()
+    
     lines = [
         f"## Official SEC {form_type} Content Review",
         "",
@@ -497,6 +510,9 @@ def build_filing_content_report(
         f"- Report date: {filing['report_date']}",
         f"- Form: {filing['form']}",
         f"- [Official SEC document]({filing['document_url']})",
+        "- Source: U.S. Securities and Exchange Commission EDGAR",
+        f"- Collected at (UTC): {collected_at}",
+        "- Document status: Official SEC filing document",
         "",
         "### Management guidance candidates",
         "",
