@@ -27,6 +27,24 @@ def _safe_number(value: Any) -> float:
     return number if math.isfinite(number) else 0.0
 
 
+def _safe_implied_volatility(value: Any) -> float | None:
+    """Convert provider IV to a positive finite number or missing value.
+
+    Input: implied-volatility value from the option provider.
+    Output: positive finite float, or None when missing or invalid.
+    Role: prevent unavailable IV from being reported as a real 0.0%.
+    """
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+
+    if not math.isfinite(number) or number < 0.001:
+        return None
+
+    return number
+
+
 def _sum_column(frame: Any, column: str) -> float:
     """Return a safe numeric sum for one option-chain column."""
     if frame is None or frame.empty or column not in frame.columns:
@@ -59,7 +77,7 @@ def _highest_open_interest(frame: Any) -> dict[str, Any] | None:
                 "strike": _safe_number(row.get("strike")),
                 "open_interest": open_interest,
                 "volume": _safe_number(row.get("volume")),
-                "implied_volatility": _safe_number(
+                "implied_volatility": _safe_implied_volatility(
                     row.get("impliedVolatility")
                 ),
             }
@@ -99,7 +117,7 @@ def _top_volume_oi_activity(
                 "open_interest": open_interest,
                 "volume": volume,
                 "volume_oi_ratio": volume / open_interest,
-                "implied_volatility": _safe_number(
+                "implied_volatility": _safe_implied_volatility(
                     row.get("impliedVolatility")
                 ),
             }
@@ -204,16 +222,22 @@ def _format_ratio(value: float | None) -> str:
     return "N/A" if value is None else f"{value:.2f}"
 
 
+def _format_iv(value: float | None) -> str:
+    """Format implied volatility without converting missing data to zero."""
+    return "N/A" if value is None else f"{value * 100:.1f}%"
+
 def _format_contract(contract: dict[str, Any] | None) -> str:
     """Format one maximum-OI contract for a compact table cell."""
     if not contract:
         return "N/A"
 
+    implied_volatility = _format_iv(contract["implied_volatility"])
+
     return (
         f"${contract['strike']:.2f} "
         f"(OI {contract['open_interest']:,.0f}, "
         f"Vol {contract['volume']:,.0f}, "
-        f"IV {contract['implied_volatility'] * 100:.1f}%)"
+        f"IV {implied_volatility})"
     )
 
 
@@ -349,7 +373,7 @@ def build_options_report(
                 f"| {candidate['volume']:,.0f} "
                 f"| {candidate['open_interest']:,.0f} "
                 f"| {candidate['volume_oi_ratio']:.2f} "
-                f"| {candidate['implied_volatility'] * 100:.1f}% |"
+                f"| {_format_iv(candidate['implied_volatility'])} |"
             )
 
     if candidate_count == 0:

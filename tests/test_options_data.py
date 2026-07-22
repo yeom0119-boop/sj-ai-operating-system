@@ -9,6 +9,8 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 
 from modules.options_data import (
+    _format_iv,
+    _safe_implied_volatility,
     build_options_report,
     collect_options_snapshot,
 )
@@ -100,6 +102,15 @@ class OptionsDataTests(unittest.TestCase):
                 "no listed options",
             ):
                 collect_options_snapshot("NVDA", 1)
+    def test_missing_implied_volatility_displays_as_na(self) -> None:
+        """Missing or invalid IV is not reported as a real zero percent."""
+        self.assertIsNone(_safe_implied_volatility(None))
+        self.assertIsNone(_safe_implied_volatility(float("nan")))
+        self.assertIsNone(_safe_implied_volatility(0.0))
+        self.assertIsNone(_safe_implied_volatility(0.00001))
+        self.assertEqual(_safe_implied_volatility(0.50), 0.50)
+        self.assertEqual(_format_iv(None), "N/A")
+        self.assertEqual(_format_iv(0.50), "50.0%")
 
     def test_build_options_report_formats_snapshot(self) -> None:
         """A collected snapshot becomes a readable Markdown report."""
