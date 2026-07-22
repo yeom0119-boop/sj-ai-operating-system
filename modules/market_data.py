@@ -137,8 +137,7 @@ def build_stock_report(ticker: str) -> str:
         rsi_state = "oversold zone"
 
     return f"""## Automated Market Data — {market_date}
-    volume_ratio = (float(latest["Volume"]) / volume20) * 100
-### Confirmed facts
+    ### Confirmed facts
 
 - Ticker: {symbol}
 - Close: ${close_price:,.2f}
