@@ -21,15 +21,15 @@ import main
 class MainMenuTests(unittest.TestCase):
     """Tests for main.py menu behavior."""
 
-    def test_print_menu_shows_v1_8_options(self) -> None:
-        """The menu displays the required v1.8 labels."""
+    def test_print_menu_shows_v2_0_options(self) -> None:
+        """The menu displays the required v2.0 labels."""
         buffer = io.StringIO()
 
         with patch("sys.stdout", buffer):
             main.print_menu()
 
         output = buffer.getvalue()
-        self.assertIn("SJ AI Operating System v1.8", output)
+        self.assertIn("SJ AI Operating System v2.0", output)
         self.assertIn("1. Create daily note", output)
         self.assertIn("2. Create stock note", output)
         self.assertIn("3. Read stock note", output)

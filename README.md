@@ -1,4 +1,4 @@
-﻿# SJ AI Operating System v1.4 MVP
+﻿# SJ AI Operating System v2.0 MVP
 
 SJ AI Operating System is a local, Markdown-based investment research system.
 
@@ -202,13 +202,13 @@ README.md
 
 ## Current Limitations
 
-The v1.8 system does not yet automatically:
+The v2.0 system does not yet automatically:
 
 - Collect day-to-day options OI changes
 - Determine whether option contracts were bought or sold
 - Collect IV, IV Rank, IV Percentile, and gamma exposure
 - Normalize partial intraday volume against elapsed session time
-- Collect market breadth, A/D, VWAP, and sector flows
+- Collect market breadth, VWAP, and sector flows
 - Collect short-interest and verified multi-source news data
 - Run cross-analysis through ChatGPT, Gemini, Claude, and local AI together
 - Confirm actual institutional buying or selling
