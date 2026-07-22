@@ -1,10 +1,15 @@
 """Tests for stock market data validation and indicator calculations."""
 
 import unittest
+from datetime import datetime, timezone
 
 import pandas as pd
 
-from modules.market_data import calculate_indicators, normalize_ticker
+from modules.market_data import (
+    build_market_metadata,
+    calculate_indicators,
+    normalize_ticker,
+)
 
 
 class MarketDataTests(unittest.TestCase):
@@ -49,6 +54,22 @@ class MarketDataTests(unittest.TestCase):
         self.assertEqual(result["OBV"].iloc[-1], 5900)
         self.assertAlmostEqual(result["RSI14"].iloc[-1], 100.0)
 
+    def test_build_market_metadata_reports_source_time_and_status(self) -> None:
+        """Report metadata identifies source, collection time, and data status."""
+        data = pd.DataFrame(
+            {"Close": [100.0]},
+            index=pd.to_datetime(["2026-07-20"]),
+        )
+        collected_at = datetime(2026, 7, 21, 12, 30, tzinfo=timezone.utc)
 
+        metadata = build_market_metadata(data, collected_at=collected_at)
+
+        self.assertEqual(metadata["source"], "Yahoo Finance via yfinance")
+        self.assertEqual(metadata["collected_at_utc"], "2026-07-21 12:30:00 UTC")
+        self.assertEqual(metadata["market_date"], "2026-07-20")
+        self.assertEqual(
+            metadata["market_status"],
+            "Latest completed/available daily session",
+        )
 if __name__ == "__main__":
     unittest.main()

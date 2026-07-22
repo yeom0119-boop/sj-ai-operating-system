@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-
+from datetime import datetime, timezone
 import pandas as pd
 import yfinance as yf
 from modules.footprint import calculate_footprint_scores
@@ -43,9 +43,48 @@ def fetch_stock_history(ticker: str, period: str = "1y") -> pd.DataFrame:
         raise RuntimeError(f"No market data found for {symbol}.")
 
     return data
+def build_market_metadata(
+    data: pd.DataFrame,
+    collected_at: datetime | None = None,
+) -> dict[str, str]:
+    """Build traceable metadata for a daily market-data report.
+
+    Input:
+        data: Historical market data with a date-based index.
+        collected_at: Optional UTC collection time used by tests.
+    Output:
+        Source, collection time, market date, and market-status labels.
+    Role:
+        Show when the report data was collected and which session it represents.
+    """
+    if data.empty:
+        raise ValueError("market data is empty")
+
+    collection_time = collected_at or datetime.now(timezone.utc)
+    if collection_time.tzinfo is None:
+        collection_time = collection_time.replace(tzinfo=timezone.utc)
+    else:
+        collection_time = collection_time.astimezone(timezone.utc)
+
+    market_date = pd.Timestamp(data.index[-1]).date()
+    if market_date < collection_time.date():
+        market_status = "Latest completed/available daily session"
+    elif market_date == collection_time.date():
+        market_status = "Current market-date data; may be incomplete intraday"
+    else:
+        market_status = "Market-date status requires verification"
+
+    return {
+        "source": "Yahoo Finance via yfinance",
+        "collected_at_utc": collection_time.strftime("%Y-%m-%d %H:%M:%S UTC"),
+        "market_date": market_date.isoformat(),
+        "market_status": market_status,
+    }
 
 
 def calculate_indicators(data: pd.DataFrame) -> pd.DataFrame:
+
+
     """Calculate moving averages, volume, OBV, A/D, and RSI14.
 
     Input:
@@ -99,6 +138,9 @@ def build_stock_report(ticker: str) -> str:
     """
     symbol = normalize_ticker(ticker)
     indicators = calculate_indicators(fetch_stock_history(symbol))
+    indicators = calculate_indicators(fetch_stock_history(symbol))
+    metadata = build_market_metadata(indicators)
+    footprint = calculate_footprint_scores(indicators)
     footprint = calculate_footprint_scores(indicators)
     latest = indicators.iloc[-1]
     previous = indicators.iloc[-2]
@@ -151,7 +193,10 @@ def build_stock_report(ticker: str) -> str:
 - Volume vs 20-day average: {volume_ratio:.1f}%
 - OBV: {obv:,}
 - RSI14: {rsi14:.2f}
-- Data source: Yahoo Finance via yfinance
+- Data source: {metadata["source"]}
+- Collected at (UTC): {metadata["collected_at_utc"]}
+- Market data date: {metadata["market_date"]}
+- Market status: {metadata["market_status"]}
 
 ### Preliminary Institutional Footprint
 
