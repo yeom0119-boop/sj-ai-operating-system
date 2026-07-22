@@ -6,6 +6,7 @@ import pandas as pd
 
 from modules.institutional_footprint import (
     build_footprint_report,
+    calculate_analysis_confidence,
     calculate_footprint_scores,
 )
 
@@ -167,6 +168,33 @@ class FootprintScoreTests(unittest.TestCase):
                 indicators,
                 {"ticker": "TEST", "expirations": []},
             )
+    def test_analysis_confidence_uses_metadata(self) -> None:
+        """Delayed options and incomplete coverage lower confidence."""
+        metadata = {
+            "source": "Yahoo Finance via yfinance",
+            "collected_at_utc": "2026-07-22 10:00:00 UTC",
+            "market_date": "2026-07-21",
+            "market_status": "Latest completed/available daily session",
+        }
+        options_snapshot = {
+            "data_status": (
+                "Latest available provider snapshot; may be delayed"
+            )
+        }
+
+        confidence = calculate_analysis_confidence(
+            metadata,
+            options_snapshot,
+            data_coverage=90,
+        )
+
+        self.assertEqual(confidence["score"], 87)
+        self.assertEqual(confidence["level"], "MEDIUM")
+        self.assertEqual(
+            confidence["components"]["options_status"],
+            5,
+        )
+
 
 class FootprintReportTests(unittest.TestCase):
     """Verify the Markdown footprint report output."""
@@ -195,6 +223,9 @@ class FootprintReportTests(unittest.TestCase):
         mock_collect_options.return_value = {
             "analyzed_expirations": 3,
             "expiration_count": 23,
+            "data_status": (
+                "Latest available provider snapshot; may be delayed"
+            ),
         }
         mock_calculate_scores.return_value = {
             "ticker": "NVDA",

@@ -3,7 +3,7 @@
 This module combines technical indicators and option-chain summaries.
 The scores are probability signals, not proof of institutional trading.
 """
-
+from datetime import datetime
 from typing import Any
 
 from modules.market_data import (
@@ -29,7 +29,28 @@ def _safe_float(value: Any) -> float | None:
         return None
 
     return number
+def _market_data_age_days(
+    market_metadata: dict[str, Any],
+) -> int | None:
+    """Calculate market-data age at the collection time.
 
+    Input: market metadata containing collection time and market date.
+    Output: non-negative age in days, or None when metadata is invalid.
+    Role: measure freshness without depending on the computer's current time.
+    """
+    try:
+        collected_at = datetime.strptime(
+            str(market_metadata["collected_at_utc"]),
+            "%Y-%m-%d %H:%M:%S UTC",
+        )
+        market_date = datetime.strptime(
+            str(market_metadata["market_date"]),
+            "%Y-%m-%d",
+        )
+    except (KeyError, TypeError, ValueError):
+        return None
+
+    return max(0, (collected_at.date() - market_date.date()).days)
 
 def _average_expiration_ratio(
     options_snapshot: dict[str, Any],
@@ -74,7 +95,106 @@ def _add_signal(
         }
     )
 
+def calculate_analysis_confidence(
+    market_metadata: dict[str, Any],
+    options_snapshot: dict[str, Any],
+    data_coverage: int,
+) -> dict[str, Any]:
+    """Calculate metadata-based analysis confidence.
 
+    Input: market metadata, option metadata, and input-data coverage.
+    Output: confidence score, level, component scores, and reasons.
+    Role: measure analysis reliability without changing signal direction.
+    """
+    score = 0
+    components: dict[str, int] = {}
+    reasons: list[str] = []
+
+    source = str(market_metadata.get("source", "")).lower()
+    if "sec" in source or "official" in source:
+        source_score = 20
+        reasons.append("The source is an official primary source.")
+    elif "yahoo finance" in source:
+        source_score = 15
+        reasons.append("Yahoo Finance is usable but is not a primary exchange source.")
+    elif source:
+        source_score = 10
+        reasons.append("A data source is identified but has limited verification.")
+    else:
+        source_score = 0
+        reasons.append("The market-data source is missing.")
+    components["source"] = source_score
+    score += source_score
+
+    age_days = _market_data_age_days(market_metadata)
+    if age_days is None:
+        freshness_score = 0
+        reasons.append("Market-data freshness could not be verified.")
+    elif age_days <= 4:
+        freshness_score = 25
+        reasons.append(f"Market data is {age_days} day(s) old.")
+    elif age_days <= 7:
+        freshness_score = 15
+        reasons.append(f"Market data is {age_days} day(s) old.")
+    elif age_days <= 14:
+        freshness_score = 5
+        reasons.append(f"Market data is {age_days} day(s) old.")
+    else:
+        freshness_score = 0
+        reasons.append(f"Market data is stale at {age_days} day(s) old.")
+    components["freshness"] = freshness_score
+    score += freshness_score
+
+    safe_coverage = max(0, min(100, int(data_coverage)))
+    coverage_score = round(safe_coverage * 0.30)
+    components["data_coverage"] = coverage_score
+    score += coverage_score
+    reasons.append(f"Input data coverage is {safe_coverage}%.")
+
+    market_status = str(
+        market_metadata.get("market_status", "")
+    ).lower()
+    if "latest completed/available" in market_status:
+        market_status_score = 15
+        reasons.append("The latest completed or available session is identified.")
+    elif market_status:
+        market_status_score = 7
+        reasons.append("Market status is present but not fully verified.")
+    else:
+        market_status_score = 0
+        reasons.append("Market status is missing.")
+    components["market_status"] = market_status_score
+    score += market_status_score
+
+    option_status = str(
+        options_snapshot.get("data_status", "")
+    ).lower()
+    if not option_status:
+        option_status_score = 0
+        reasons.append("Option-data status is missing.")
+    elif "may be delayed" in option_status:
+        option_status_score = 5
+        reasons.append("Option data may be delayed.")
+    else:
+        option_status_score = 10
+        reasons.append("Option-data status is available without a delay warning.")
+    components["options_status"] = option_status_score
+    score += option_status_score
+
+    final_score = min(100, round(score))
+    if final_score >= 90:
+        level = "HIGH"
+    elif final_score >= 70:
+        level = "MEDIUM"
+    else:
+        level = "LOW"
+
+    return {
+        "score": final_score,
+        "level": level,
+        "components": components,
+        "reasons": reasons,
+    }
 def calculate_footprint_scores(
     indicator_data: Any,
     options_snapshot: dict[str, Any],
@@ -299,6 +419,11 @@ def build_footprint_report(
         expiration_limit=expiration_limit,
     )
     result = calculate_footprint_scores(indicators, options_snapshot)
+    confidence = calculate_analysis_confidence(
+        metadata,
+        options_snapshot,
+        result["data_coverage"],
+    )
     inputs = result["market_inputs"]
 
     signal_lines = []
@@ -316,12 +441,24 @@ def build_footprint_report(
 - **Money In Score**: {result["money_in_score"]}/100
 - **Money Out Score**: {result["money_out_score"]}/100
 - **Data coverage**: {result["data_coverage"]}%
+- **Analysis confidence**: {confidence["score"]}/100 ({confidence["level"]})
 - **Source**: {metadata["source"]}
 - **Collected at (UTC)**: {metadata["collected_at_utc"]}
 - **Market data date**: {metadata["market_date"]}
 - **Market status**: {metadata["market_status"]}
 - **Analyzed option expirations**: {options_snapshot["analyzed_expirations"]} of {options_snapshot["expiration_count"]}
 - **Option ratio method**: Simple average of per-expiration ratios
+
+## Analysis confidence
+
+| Component | Score |
+|---|---:|
+| Source reliability | {confidence["components"]["source"]}/20 |
+| Market-data freshness | {confidence["components"]["freshness"]}/25 |
+| Input-data coverage | {confidence["components"]["data_coverage"]}/30 |
+| Market-status clarity | {confidence["components"]["market_status"]}/15 |
+| Options-data status | {confidence["components"]["options_status"]}/10 |
+
 ## Market inputs
 
 | Indicator | Value |
