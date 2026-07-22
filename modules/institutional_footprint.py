@@ -6,7 +6,11 @@ The scores are probability signals, not proof of institutional trading.
 
 from typing import Any
 
-from modules.market_data import calculate_indicators, fetch_stock_history
+from modules.market_data import (
+    build_market_metadata,
+    calculate_indicators,
+    fetch_stock_history,
+)
 from modules.options_data import collect_options_snapshot
 
 def _safe_float(value: Any) -> float | None:
@@ -288,6 +292,7 @@ def build_footprint_report(
     Role: download live inputs and present explainable Money In/Out scores.
     """
     history = fetch_stock_history(ticker, period="1y")
+    metadata = build_market_metadata(history)
     indicators = calculate_indicators(history)
     options_snapshot = collect_options_snapshot(
         ticker,
@@ -311,7 +316,10 @@ def build_footprint_report(
 - **Money In Score**: {result["money_in_score"]}/100
 - **Money Out Score**: {result["money_out_score"]}/100
 - **Data coverage**: {result["data_coverage"]}%
-- **Source**: Yahoo Finance via yfinance
+- **Source**: {metadata["source"]}
+- **Collected at (UTC)**: {metadata["collected_at_utc"]}
+- **Market data date**: {metadata["market_date"]}
+- **Market status**: {metadata["market_status"]}
 - **Analyzed option expirations**: {options_snapshot["analyzed_expirations"]} of {options_snapshot["expiration_count"]}
 - **Option ratio method**: Simple average of per-expiration ratios
 ## Market inputs
@@ -339,4 +347,4 @@ def build_footprint_report(
 This preliminary radar does not confirm institutional buying or selling.
 Use official company guidance as the primary valuation source.
 """
-# TODO: Add OI change, IV Rank, breadth, sector flow, VWAP, A/D, and short data.
+# TODO: Add OI change, IV Rank, breadth, sector flow, VWAP, and short data.

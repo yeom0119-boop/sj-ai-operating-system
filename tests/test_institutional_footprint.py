@@ -170,7 +170,7 @@ class FootprintScoreTests(unittest.TestCase):
 
 class FootprintReportTests(unittest.TestCase):
     """Verify the Markdown footprint report output."""
-
+    @patch("modules.institutional_footprint.build_market_metadata")
     @patch("modules.institutional_footprint.calculate_footprint_scores")
     @patch("modules.institutional_footprint.collect_options_snapshot")
     @patch("modules.institutional_footprint.calculate_indicators")
@@ -181,8 +181,15 @@ class FootprintReportTests(unittest.TestCase):
         mock_calculate_indicators,
         mock_collect_options,
         mock_calculate_scores,
+        mock_market_metadata,
     ) -> None:
         """Report shows analyzed expirations and the ratio method."""
+        mock_market_metadata.return_value = {
+            "source": "Yahoo Finance via yfinance",
+            "collected_at_utc": "2026-07-22 04:32:57 UTC",
+            "market_date": "2026-07-21",
+            "market_status": "Latest completed/available daily session",
+        }
         mock_fetch_history.return_value = object()
         mock_calculate_indicators.return_value = object()
         mock_collect_options.return_value = {
@@ -210,7 +217,18 @@ class FootprintReportTests(unittest.TestCase):
         }
 
         report = build_footprint_report("NVDA", expiration_limit=3)
-
+        self.assertIn(
+            "**Collected at (UTC)**: 2026-07-22 04:32:57 UTC",
+            report,
+        )
+        self.assertIn(
+            "**Market data date**: 2026-07-21",
+            report,
+        )
+        self.assertIn(
+            "**Market status**: Latest completed/available daily session",
+            report,
+        )
         self.assertIn(
             "**Analyzed option expirations**: 3 of 23",
             report,
