@@ -68,6 +68,11 @@ class OptionsDataTests(unittest.TestCase):
         expiration = snapshot["expirations"][0]
         self.assertEqual(snapshot["ticker"], "NVDA")
         self.assertEqual(snapshot["current_price"], 202.81)
+        self.assertTrue(snapshot["collected_at"].endswith(" UTC"))
+        self.assertEqual(
+            snapshot["data_status"],
+            "Latest available provider snapshot; may be delayed",
+        )
         self.assertEqual(expiration["call_open_interest"], 400.0)
         self.assertEqual(expiration["put_open_interest"], 200.0)
         self.assertEqual(expiration["put_call_oi_ratio"], 0.5)
@@ -104,6 +109,10 @@ class OptionsDataTests(unittest.TestCase):
             "expiration_count": 1,
             "analyzed_expirations": 1,
             "source": "Test provider",
+            "collected_at": "2026-07-22 05:00:00 UTC",
+            "data_status": (
+                "Latest available provider snapshot; may be delayed"
+            ),
             "expirations": [
                 {
                     "expiration": "2026-07-20",
@@ -152,6 +161,15 @@ class OptionsDataTests(unittest.TestCase):
         self.assertIn("Put/Call OI ratio**: 0.50", report)
         self.assertIn("$210.00", report)
         self.assertIn("Test provider", report)
+        self.assertIn(
+            "Collected at (UTC)**: 2026-07-22 05:00:00 UTC",
+            report,
+        )
+        self.assertIn(
+            "Data status**: Latest available provider snapshot; "
+            "may be delayed",
+            report,
+        )
         self.assertIn("not proof of institutional", report)
 
 

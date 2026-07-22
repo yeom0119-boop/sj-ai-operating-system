@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import math
+from datetime import datetime, timezone
 from typing import Any
+
 
 import yfinance as yf
 
@@ -138,6 +140,9 @@ def collect_options_snapshot(
         raise ValueError(f"current price could not be found for {normalized}")
 
     current_price = _safe_number(price_history["Close"].iloc[-1])
+    collected_at = datetime.now(timezone.utc).strftime(
+        "%Y-%m-%d %H:%M:%S UTC"
+    )
     selected_expirations = expirations[:expiration_limit]
     expiration_reports = []
 
@@ -191,6 +196,8 @@ def collect_options_snapshot(
         "analyzed_expirations": len(expiration_reports),
         "expirations": expiration_reports,
         "source": "Yahoo Finance via yfinance",
+        "collected_at": collected_at,
+        "data_status": "Latest available provider snapshot; may be delayed",
     }
 def _format_ratio(value: float | None) -> str:
     """Format an optional ratio for Markdown output."""
@@ -257,6 +264,14 @@ def build_options_report(
             f"of {snapshot['expiration_count']}"
         ),
         f"- **Source**: {snapshot['source']}",
+        f"- **Collected at (UTC)**: {snapshot.get('collected_at', 'N/A')}",
+        f"- **Source**: {snapshot['source']}",
+        f"- **Collected at (UTC)**: {snapshot.get('collected_at', 'N/A')}",
+        (
+            f"- **Data status**: "
+            f"{snapshot.get('data_status', 'N/A')}"
+        ),
+        "",
         "",
         "## Combined summary",
         "",
