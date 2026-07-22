@@ -8,10 +8,10 @@ import os
 
 from dotenv import load_dotenv
 from google import genai
-
+from google.genai import types
 
 DEFAULT_GEMINI_MODEL = "gemini-3.5-flash"
-
+GEMINI_TIMEOUT_MS = 120_000
 
 def get_gemini_client() -> genai.Client:
     """Create an authenticated Gemini client.
@@ -31,7 +31,10 @@ def get_gemini_client() -> genai.Client:
             "GEMINI_API_KEY is missing. Add it to the local .env file."
         )
 
-    return genai.Client(api_key=api_key)
+    return genai.Client(
+        api_key=api_key,
+        http_options=types.HttpOptions(timeout=GEMINI_TIMEOUT_MS),
+    )
 
 
 def analyze_sec_guidance(
