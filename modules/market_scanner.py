@@ -75,6 +75,7 @@ def load_market_scanner_config(
         "require_rising_ad",
         "batch_size",
         "max_candidates",
+        "deep_analysis_limit",
     }
     missing_keys = sorted(required_keys - config.keys())
 

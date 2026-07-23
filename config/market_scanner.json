@@ -9,5 +9,6 @@
     "require_rising_obv": true,
     "require_rising_ad": true,
     "batch_size": 100,
-    "max_candidates": 10
+    "max_candidates": 10,
+    "deep_analysis_limit": 3
   }

@@ -41,6 +41,7 @@ class MarketScannerTests(unittest.TestCase):
         self.assertTrue(config["require_rising_ad"])
         self.assertEqual(config["batch_size"], 100)
         self.assertEqual(config["max_candidates"], 10)
+        self.assertEqual(config["deep_analysis_limit"], 3)
 
     def test_excludes_overheated_technical_candidates(self) -> None:
         """High RSI and excessive MA20 extension are excluded."""

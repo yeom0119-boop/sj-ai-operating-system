@@ -466,6 +466,58 @@ def handle_generate_watchlist_footprint_reports() -> None:
             print(f"  - {ticker}: {error_message}")
 
 
+def build_integrated_analysis_report(ticker: str) -> str:
+    """Build the existing integrated research report for one ticker.
+
+    Input: one validated U.S. stock ticker.
+    Output: combined market, options, SEC, and Gemini report.
+    Role: share one deep-analysis pipeline between watchlist and scanner.
+    """
+    print("  1/4 Downloading market data...")
+    market_report = build_stock_report(ticker)
+
+    print("  2/4 Downloading options data...")
+    options_report = build_options_report(ticker)
+
+    print("  3/4 Downloading current and previous SEC guidance...")
+    current_guidance = build_earnings_guidance_report(
+        ticker,
+        release_index=0,
+    )
+    previous_guidance = build_earnings_guidance_report(
+        ticker,
+        release_index=1,
+    )
+
+    comparison_source = (
+        f"# CURRENT EARNINGS GUIDANCE\n\n{current_guidance}"
+        f"\n\n# PREVIOUS EARNINGS GUIDANCE\n\n{previous_guidance}"
+    )
+
+    print("  4/4 Analyzing SEC guidance with Gemini...")
+    gemini_analysis = analyze_sec_guidance(
+        ticker,
+        comparison_source,
+    )
+
+    return (
+        "# Integrated Stock Analysis\n\n"
+        f"{market_report}\n\n"
+        "---\n\n"
+        "## Options Footprint\n\n"
+        f"{options_report}\n\n"
+        "---\n\n"
+        "## Current SEC Guidance\n\n"
+        f"{current_guidance}\n\n"
+        "---\n\n"
+        "## Previous SEC Guidance\n\n"
+        f"{previous_guidance}\n\n"
+        "---\n\n"
+        "## Gemini Guidance Comparison\n\n"
+        f"{gemini_analysis}"
+    )
+
+
 def handle_generate_watchlist_integrated_analysis() -> None:
     """Generate integrated analysis for every watchlist ticker.
 
@@ -495,50 +547,7 @@ def handle_generate_watchlist_integrated_analysis() -> None:
         print(f"\n[{position}/{len(tickers)}] Processing {ticker}...")
 
         try:
-            print("  1/4 Downloading market data...")
-            market_report = build_stock_report(ticker)
-
-            print("  2/4 Downloading options data...")
-            options_report = build_options_report(ticker)
-
-            print("  3/4 Downloading current and previous SEC guidance...")           
-            current_guidance = build_earnings_guidance_report(
-                ticker,
-                release_index=0,
-            )
-            previous_guidance = build_earnings_guidance_report(
-                ticker,
-                release_index=1,
-            )
-
-            comparison_source = (
-                f"# CURRENT EARNINGS GUIDANCE\n\n{current_guidance}"
-                f"\n\n# PREVIOUS EARNINGS GUIDANCE\n\n{previous_guidance}"
-            )
-
-            print("  4/4 Analyzing SEC guidance with Gemini...")
-            gemini_analysis = analyze_sec_guidance(
-                ticker,
-                comparison_source,
-            )
-
-            integrated_report = (
-                "# Integrated Watchlist Analysis\n\n"
-                f"{market_report}\n\n"
-                "---\n\n"
-                "## Options Footprint\n\n"
-                f"{options_report}\n\n"
-                "---\n\n"
-                "## Current SEC Guidance\n\n"
-                f"{current_guidance}\n\n"
-                "---\n\n"
-                "## Previous SEC Guidance\n\n"
-                f"{previous_guidance}\n\n"
-                "---\n\n"
-                "## Gemini Guidance Comparison\n\n"
-                f"{gemini_analysis}"
-            )
-
+            integrated_report = build_integrated_analysis_report(ticker)
             saved_path, _action = save_stock_note(
                 ticker,
                 integrated_report,
@@ -571,7 +580,9 @@ def handle_scan_us_market() -> None:
     """
     try:
         config = load_market_scanner_config()
-
+        deep_analysis_limit = int(config["deep_analysis_limit"])
+        if deep_analysis_limit <= 0:
+            raise ValueError("deep analysis limit must be positive")
         print("\nStarting full U.S. market scan...")
         print("This may take several minutes.")
 
@@ -615,7 +626,60 @@ def handle_scan_us_market() -> None:
             f"Price: ${candidate['price']:.2f} | "
             f"RSI14: {candidate['rsi14']:.2f}"
         )
+    analysis_candidates = candidates[:deep_analysis_limit]
+    completed = []
+    failed = []
 
+    print(
+        f"\nStarting deep analysis for "
+        f"{len(analysis_candidates)} top-ranked stocks..."
+    )
+
+    for position, candidate in enumerate(analysis_candidates, start=1):
+        ticker = str(candidate["ticker"])
+        print(
+            f"\n[{position}/{len(analysis_candidates)}] "
+            f"Deep analysis: {ticker}"
+        )
+
+        try:
+            integrated_report = build_integrated_analysis_report(ticker)
+            scanner_summary = (
+                "# Market Scanner Selection\n\n"
+                f"- **Technical rank**: {candidate['technical_rank']}\n"
+                f"- **Footprint strength**: "
+                f"{candidate['footprint_strength']:.4f}\n"
+                f"- **Price**: ${candidate['price']:.2f}\n"
+                f"- **RSI14**: {candidate['rsi14']:.2f}\n"
+                f"- **Price vs MA20**: "
+                f"{candidate['price_vs_ma20_pct']:.2f}%"
+            )
+            combined_report = (
+                f"{scanner_summary}\n\n"
+                "---\n\n"
+                f"{integrated_report}"
+            )
+            saved_path, _action = save_stock_note(
+                ticker,
+                combined_report,
+            )
+        except Exception as error:
+            # Continue when one candidate lacks provider or SEC data.
+            failed.append((ticker, str(error)))
+            print(f"Error: {ticker} deep analysis failed: {error}")
+            continue
+
+        completed.append(ticker)
+        print(f"Saved: {_relative_vault_path(saved_path)}")
+
+    print("\nMarket Scanner deep analysis completed.")
+    print(f"Successful: {len(completed)}")
+    print(f"Failed: {len(failed)}")
+
+    if failed:
+        print("Failed tickers:")
+        for ticker, error_message in failed:
+            print(f"  - {ticker}: {error_message}")
 def main() -> None:
     """Run the SJ AI Operating System v2.0 interactive menu."""
     _configure_stdout()

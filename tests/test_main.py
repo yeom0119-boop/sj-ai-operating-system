@@ -96,6 +96,7 @@ class MarketScannerHandlerTests(unittest.TestCase):
             "require_rising_ad": True,
             "batch_size": 100,
             "max_candidates": 10,
+            "deep_analysis_limit": 3,
         }
         candidates = [
             {
@@ -117,8 +118,20 @@ class MarketScannerHandlerTests(unittest.TestCase):
                 "main.scan_us_market_technical_candidates",
                 return_value=candidates,
             ) as scanner:
-                with patch("sys.stdout", buffer):
-                    main.handle_scan_us_market()
+                with patch(
+                    "main.build_integrated_analysis_report",
+                    return_value="Integrated report",
+                ) as deep_builder:
+                    with patch(
+                        "main.save_stock_note",
+                        return_value=("unused-path", "append"),
+                    ) as save_note:
+                        with patch(
+                            "main._relative_vault_path",
+                            return_value="Stocks/NVDA.md",
+                        ):
+                            with patch("sys.stdout", buffer):
+                                main.handle_scan_us_market()
 
         scanner.assert_called_once_with(
             min_price=5.0,
@@ -131,6 +144,12 @@ class MarketScannerHandlerTests(unittest.TestCase):
             require_rising_obv=True,
             require_rising_ad=True,
             batch_size=100,
+        )
+        deep_builder.assert_called_once_with("NVDA")
+        self.assertEqual(save_note.call_args.args[0], "NVDA")
+        self.assertIn(
+            "# Market Scanner Selection",
+            save_note.call_args.args[1],
         )
         output = buffer.getvalue()
         self.assertIn("Candidates: 1", output)
