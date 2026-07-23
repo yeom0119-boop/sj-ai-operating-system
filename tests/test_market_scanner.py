@@ -15,6 +15,7 @@ from modules.market_scanner import (
     filter_market_candidates,
     filter_technical_candidates,
     is_supported_stock,
+    load_market_scanner_config,
     parse_symbol_directory,
     scan_us_market,
     scan_us_market_technical_candidates,
@@ -24,7 +25,18 @@ from modules.market_scanner import (
 
 class MarketScannerTests(unittest.TestCase):
     """Verify preparation of ticker symbols for full-market scanning."""
+    def test_loads_market_scanner_config(self) -> None:
+        """The checked-in configuration provides every scanner default."""
+        config = load_market_scanner_config()
 
+        self.assertEqual(config["min_price"], 5.0)
+        self.assertEqual(config["min_average_volume"], 500000)
+        self.assertEqual(config["min_average_dollar_volume"], 20000000)
+        self.assertEqual(config["min_rsi"], 50.0)
+        self.assertTrue(config["require_above_ma20"])
+        self.assertTrue(config["require_rising_obv"])
+        self.assertTrue(config["require_rising_ad"])
+        self.assertEqual(config["batch_size"], 100)
     def test_prepares_unique_sorted_tickers(self) -> None:
         """Symbols are normalized, deduplicated, and sorted."""
         symbols = ["nvda", "MSFT", "NVDA", "aapl"]

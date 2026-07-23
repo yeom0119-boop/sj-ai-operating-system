@@ -1,8 +1,10 @@
 """Prepare the U.S. stock universe for the Market Scanner."""
 
 import csv
+import json
 import re
 from io import StringIO
+from pathlib import Path
 
 import pandas as pd
 import requests
@@ -20,6 +22,8 @@ OTHER_LISTED_URL = (
 )
 DIRECTORY_TIMEOUT_SECONDS = 30
 MARKET_DATA_BATCH_SIZE = 100
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+MARKET_SCANNER_CONFIG_PATH = PROJECT_ROOT / "config" / "market_scanner.json"
 MARKET_DATA_PERIOD = "1mo"
 TECHNICAL_DATA_PERIOD = "2y"
 TECHNICAL_DATA_INTERVAL = "1d"
@@ -36,6 +40,48 @@ EXCLUDED_SECURITY_PATTERN = re.compile(
     r")\b",
     re.IGNORECASE,
 )
+def load_market_scanner_config(
+    config_path: Path = MARKET_SCANNER_CONFIG_PATH,
+) -> dict[str, object]:
+    """Load and validate the Market Scanner configuration.
+
+    Input: path to a Market Scanner JSON configuration file.
+    Output: dictionary containing every required scanner setting.
+    Role: keep scanner thresholds outside the Python source code.
+    """
+    try:
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+    except FileNotFoundError as error:
+        raise FileNotFoundError(
+            f"market scanner config not found: {config_path}"
+        ) from error
+    except json.JSONDecodeError as error:
+        raise ValueError(
+            f"invalid market scanner JSON: {config_path}"
+        ) from error
+
+    if not isinstance(config, dict):
+        raise ValueError("market scanner config must be a JSON object")
+
+    required_keys = {
+        "min_price",
+        "min_average_volume",
+        "min_average_dollar_volume",
+        "min_rsi",
+        "require_above_ma20",
+        "require_rising_obv",
+        "require_rising_ad",
+        "batch_size",
+    }
+    missing_keys = sorted(required_keys - config.keys())
+
+    if missing_keys:
+        raise ValueError(
+            "market scanner config is missing: "
+            + ", ".join(missing_keys)
+        )
+
+    return config
 
 
 def is_supported_stock(security_name: str) -> bool:
