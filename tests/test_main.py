@@ -52,11 +52,12 @@ class MainMenuTests(unittest.TestCase):
             output,
         )
         self.assertIn("17. Generate footprint radar for all watchlist stocks", output)
-        self.assertIn("18. Exit", output)
+        self.assertIn("18. Run full U.S. Market Scanner", output)
+        self.assertIn("19. Exit", output)
 
     def test_main_rejects_invalid_choice(self) -> None:
         """Invalid menu input prints an error and keeps running until Exit."""
-        inputs = iter(["19", "18"])
+        inputs = iter(["20", "19"])
         buffer = io.StringIO()
 
         with patch("builtins.input", lambda _prompt="": next(inputs)):
@@ -64,8 +65,70 @@ class MainMenuTests(unittest.TestCase):
                 main.main()
 
         output = buffer.getvalue()
-        self.assertIn("Error: please enter a number from 1 to 18.", output)
+        self.assertIn("Error: please enter a number from 1 to 19.", output)
         self.assertIn("Goodbye.", output)
+    def test_menu_option_18_runs_market_scanner(self) -> None:
+        """Menu option 18 starts the Market Scanner and option 19 exits."""
+        inputs = iter(["18", "19"])
+
+        with patch("builtins.input", lambda _prompt="": next(inputs)):
+            with patch("main.handle_scan_us_market") as scanner_handler:
+                with patch("sys.stdout", io.StringIO()):
+                    main.main()
+
+        scanner_handler.assert_called_once_with()
+
+
+class MarketScannerHandlerTests(unittest.TestCase):
+    """Tests for the configured full-market scan handler."""
+
+    def test_scanner_uses_config_and_prints_candidates(self) -> None:
+        """Configured thresholds reach the scanner and results are shown."""
+        config = {
+            "min_price": 5.0,
+            "min_average_volume": 500000,
+            "min_average_dollar_volume": 20000000,
+            "min_rsi": 50.0,
+            "require_above_ma20": True,
+            "require_rising_obv": True,
+            "require_rising_ad": True,
+            "batch_size": 100,
+        }
+        candidates = [
+            {
+                "ticker": "NVDA",
+                "price": 202.81,
+                "rsi14": 61.25,
+            }
+        ]
+        buffer = io.StringIO()
+
+        with patch(
+            "main.load_market_scanner_config",
+            return_value=config,
+        ):
+            with patch(
+                "main.scan_us_market_technical_candidates",
+                return_value=candidates,
+            ) as scanner:
+                with patch("sys.stdout", buffer):
+                    main.handle_scan_us_market()
+
+        scanner.assert_called_once_with(
+            min_price=5.0,
+            min_average_volume=500000,
+            min_average_dollar_volume=20000000.0,
+            min_rsi=50.0,
+            require_above_ma20=True,
+            require_rising_obv=True,
+            require_rising_ad=True,
+            batch_size=100,
+        )
+        output = buffer.getvalue()
+        self.assertIn("Candidates: 1", output)
+        self.assertIn("NVDA", output)
+        self.assertIn("RSI14: 61.25", output)
+
 
 class WatchlistReportTests(unittest.TestCase):
     """Tests for automated reports generated from the watchlist."""
@@ -114,7 +177,7 @@ class WatchlistReportTests(unittest.TestCase):
 
     def test_menu_option_14_runs_watchlist_reports(self) -> None:
         """Menu option 14 starts batch generation and option 15 exits."""
-        inputs = iter(["14", "18"])
+        inputs = iter(["14", "19"])
 
         with patch("builtins.input", lambda _prompt="": next(inputs)):
             with patch(
@@ -206,7 +269,7 @@ class IntegratedWatchlistAnalysisTests(unittest.TestCase):
 
     def test_menu_option_15_runs_integrated_analysis(self) -> None:
         """Menu option 15 starts integration and option 18 exits."""
-        inputs = iter(["15", "18"])
+        inputs = iter(["15", "19"])
 
         with patch("builtins.input", lambda _prompt="": next(inputs)):
             with patch(
@@ -272,7 +335,7 @@ class WatchlistFootprintReportTests(unittest.TestCase):
 
     def test_menu_option_17_runs_footprint_reports(self) -> None:
         """Menu option 17 starts footprint generation and option 18 exits."""
-        inputs = iter(["17", "18"])
+        inputs = iter(["17", "19"])
 
         with patch("builtins.input", lambda _prompt="": next(inputs)):
             with patch(

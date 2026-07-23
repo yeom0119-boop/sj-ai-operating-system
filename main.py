@@ -3,6 +3,10 @@
 import sys
 from modules.ai_analyzer import analyze_sec_guidance
 from modules.market_data import build_stock_report
+from modules.market_scanner import (
+    load_market_scanner_config,
+scan_us_market_technical_candidates,
+)
 from modules.options_data import build_options_report
 from modules.institutional_footprint import build_footprint_report
 from modules.watchlist import (
@@ -59,7 +63,8 @@ def print_menu() -> None:
     print("15. Generate integrated analysis for all watchlist stocks")
     print("16. Generate options reports for all watchlist stocks")
     print("17. Generate footprint radar for all watchlist stocks")
-    print("18. Exit")
+    print("18. Run full U.S. Market Scanner")
+    print("19. Exit")
     print()
 
 
@@ -556,13 +561,61 @@ def handle_generate_watchlist_integrated_analysis() -> None:
             print(f"  - {ticker}: {error_message}")
 
 
+def handle_scan_us_market() -> None:
+    """Run the configured full-market liquidity and technical scan.
+
+    Input: scanner thresholds loaded from config/market_scanner.json.
+    Output: qualifying ticker symbols and their core technical signals.
+    Role: expose the v2.0 Market Scanner through the main menu.
+    """
+    try:
+        config = load_market_scanner_config()
+
+        print("\nStarting full U.S. market scan...")
+        print("This may take several minutes.")
+
+        candidates = scan_us_market_technical_candidates(
+            min_price=float(config["min_price"]),
+            min_average_volume=int(config["min_average_volume"]),
+            min_average_dollar_volume=float(
+                config["min_average_dollar_volume"]
+            ),
+            min_rsi=float(config["min_rsi"]),
+            require_above_ma20=bool(config["require_above_ma20"]),
+            require_rising_obv=bool(config["require_rising_obv"]),
+            require_rising_ad=bool(config["require_rising_ad"]),
+            batch_size=int(config["batch_size"]),
+        )
+    except (FileNotFoundError, ValueError) as error:
+        print(f"\nError: {error}")
+        return
+    except Exception as error:
+        # Keep the main menu available when a market provider fails.
+        print(f"\nError: market scan failed: {error}")
+        return
+
+    print("\nMarket scan completed.")
+    print(f"Candidates: {len(candidates)}")
+
+    if not candidates:
+        print("No stocks passed every configured filter.")
+        return
+
+    print("\nQualified stocks:")
+    for position, candidate in enumerate(candidates, start=1):
+        print(
+            f"{position}. {candidate['ticker']} | "
+            f"Price: ${candidate['price']:.2f} | "
+            f"RSI14: {candidate['rsi14']:.2f}"
+        )
+
 def main() -> None:
     """Run the SJ AI Operating System v2.0 interactive menu."""
     _configure_stdout()
     while True:
         print_menu()
         try:
-            choice = input("Select (1-18): ").strip()
+            choice = input("Select (1-19): ").strip()
         except KeyboardInterrupt:
             print("\n\nInterrupted. Exiting.")
             break
@@ -604,10 +657,12 @@ def main() -> None:
         elif choice == "17":
             handle_generate_watchlist_footprint_reports()
         elif choice == "18":
+            handle_scan_us_market()
+        elif choice == "19":
             print("\nGoodbye.")
             break
         else:
-            print("\nError: please enter a number from 1 to 18.")
+            print("\nError: please enter a number from 1 to 19.")
 
 
 if __name__ == "__main__":
