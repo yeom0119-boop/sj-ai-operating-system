@@ -6,5 +6,6 @@
     "require_above_ma20": true,
     "require_rising_obv": true,
     "require_rising_ad": true,
-    "batch_size": 100
+    "batch_size": 100,
+    "max_candidates": 10
   }

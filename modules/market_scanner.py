@@ -72,6 +72,7 @@ def load_market_scanner_config(
         "require_rising_obv",
         "require_rising_ad",
         "batch_size",
+        "max_candidates",
     }
     missing_keys = sorted(required_keys - config.keys())
 
@@ -302,18 +303,33 @@ def build_technical_snapshot(
     obv_change_20 = latest["OBV"] - twenty_sessions_ago["OBV"]
     ad_change_20 = latest["AD"] - twenty_sessions_ago["AD"]
 
+    price = float(latest["Close"])
+    ma20 = float(latest["MA20"])
+    average_volume_20 = float(latest["VOLUME20"])
+    normalization_volume_20 = average_volume_20 * 20
+
+    if ma20 <= 0 or normalization_volume_20 <= 0:
+        return None
+
+    price_vs_ma20_pct = ((price / ma20) - 1) * 100
+    obv_change_ratio_20 = obv_change_20 / normalization_volume_20
+    ad_change_ratio_20 = ad_change_20 / normalization_volume_20
+
     return {
         "ticker": normalize_ticker(ticker),
-        "price": round(float(latest["Close"]), 2),
-        "ma20": round(float(latest["MA20"]), 2),
+        "price": round(price, 2),
+        "ma20": round(ma20, 2),
+        "price_vs_ma20_pct": round(price_vs_ma20_pct, 2),
         "ma60": round(float(latest["MA60"]), 2),
         "ma150": round(float(latest["MA150"]), 2),
         "ma200": round(float(latest["MA200"]), 2),
         "average_volume_20": round(float(latest["VOLUME20"])),
         "obv": round(float(latest["OBV"]), 2),
         "obv_change_20": round(float(obv_change_20), 2),
+        "obv_change_ratio_20": round(float(obv_change_ratio_20), 4),
         "ad": round(float(latest["AD"]), 2),
         "ad_change_20": round(float(ad_change_20), 2),
+        "ad_change_ratio_20": round(float(ad_change_ratio_20), 4),
         "rsi14": round(float(latest["RSI14"]), 2),
     }
 
@@ -462,6 +478,59 @@ def filter_technical_candidates(
         key=lambda candidate: str(candidate["ticker"]),
     )
 
+
+def rank_technical_candidates(
+    candidates: list[dict[str, object]],
+    max_candidates: int,
+) -> list[dict[str, object]]:
+    """Rank and limit technically qualified market candidates.
+
+    Input:
+        Filtered technical rows and the maximum result count.
+    Output:
+        Ranked candidate copies with footprint strength and rank.
+    Role:
+        Prioritize comparable institutional-footprint signals before
+        expensive deep analysis.
+    """
+    if max_candidates <= 0:
+        raise ValueError("maximum scanner candidates must be positive")
+
+    valid_candidates = []
+
+    for candidate in candidates:
+        try:
+            ticker = normalize_ticker(str(candidate["ticker"]))
+            obv_ratio = float(candidate["obv_change_ratio_20"])
+            ad_ratio = float(candidate["ad_change_ratio_20"])
+            rsi14 = float(candidate["rsi14"])
+            price_extension = float(candidate["price_vs_ma20_pct"])
+        except (KeyError, TypeError, ValueError):
+            continue
+
+        ranked_candidate = candidate.copy()
+        ranked_candidate["ticker"] = ticker
+        ranked_candidate["footprint_strength"] = round(
+            obv_ratio + ad_ratio,
+            4,
+        )
+        valid_candidates.append(ranked_candidate)
+
+    valid_candidates.sort(
+        key=lambda candidate: (
+            -float(candidate["footprint_strength"]),
+            abs(float(candidate["rsi14"]) - 60.0),
+            float(candidate["price_vs_ma20_pct"]),
+            str(candidate["ticker"]),
+        )
+    )
+
+    limited_candidates = valid_candidates[:max_candidates]
+
+    for position, candidate in enumerate(limited_candidates, start=1):
+        candidate["technical_rank"] = position
+
+    return limited_candidates
 
 def filter_market_candidates(
     market_rows: list[dict[str, object]],

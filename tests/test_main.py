@@ -93,12 +93,16 @@ class MarketScannerHandlerTests(unittest.TestCase):
             "require_rising_obv": True,
             "require_rising_ad": True,
             "batch_size": 100,
+            "max_candidates": 10,
         }
         candidates = [
             {
-                "ticker": "NVDA",
-                "price": 202.81,
-                "rsi14": 61.25,
+            "ticker": "NVDA",
+            "price": 202.81,
+            "rsi14": 61.25,
+            "price_vs_ma20_pct": 3.5,
+            "obv_change_ratio_20": 0.4,
+            "ad_change_ratio_20": 0.3,
             }
         ]
         buffer = io.StringIO()

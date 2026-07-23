@@ -5,7 +5,8 @@ from modules.ai_analyzer import analyze_sec_guidance
 from modules.market_data import build_stock_report
 from modules.market_scanner import (
     load_market_scanner_config,
-scan_us_market_technical_candidates,
+    rank_technical_candidates,
+    scan_us_market_technical_candidates,
 )
 from modules.options_data import build_options_report
 from modules.institutional_footprint import build_footprint_report
@@ -574,7 +575,7 @@ def handle_scan_us_market() -> None:
         print("\nStarting full U.S. market scan...")
         print("This may take several minutes.")
 
-        candidates = scan_us_market_technical_candidates(
+        filtered_candidates = scan_us_market_technical_candidates(
             min_price=float(config["min_price"]),
             min_average_volume=int(config["min_average_volume"]),
             min_average_dollar_volume=float(
@@ -585,6 +586,10 @@ def handle_scan_us_market() -> None:
             require_rising_obv=bool(config["require_rising_obv"]),
             require_rising_ad=bool(config["require_rising_ad"]),
             batch_size=int(config["batch_size"]),
+        )
+        candidates = rank_technical_candidates(
+            filtered_candidates,
+            max_candidates=int(config["max_candidates"]),
         )
     except (FileNotFoundError, ValueError) as error:
         print(f"\nError: {error}")

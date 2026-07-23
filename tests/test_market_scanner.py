@@ -19,6 +19,7 @@ from modules.market_scanner import (
     parse_symbol_directory,
     scan_us_market,
     scan_us_market_technical_candidates,
+    rank_technical_candidates,
     prepare_market_universe,
 )
 
@@ -37,6 +38,47 @@ class MarketScannerTests(unittest.TestCase):
         self.assertTrue(config["require_rising_obv"])
         self.assertTrue(config["require_rising_ad"])
         self.assertEqual(config["batch_size"], 100)
+        self.assertEqual(config["max_candidates"], 10)
+
+    def test_ranks_and_limits_technical_candidates(self) -> None:
+        """Normalized footprint strength controls deep-analysis priority."""
+        candidates = [
+            {
+                "ticker": "AAPL",
+                "rsi14": 60.0,
+                "price_vs_ma20_pct": 2.0,
+                "obv_change_ratio_20": 0.2,
+                "ad_change_ratio_20": 0.3,
+            },
+            {
+                "ticker": "NVDA",
+                "rsi14": 65.0,
+                "price_vs_ma20_pct": 4.0,
+                "obv_change_ratio_20": 0.4,
+                "ad_change_ratio_20": 0.3,
+            },
+            {
+                "ticker": "MSFT",
+                "rsi14": 58.0,
+                "price_vs_ma20_pct": 1.0,
+                "obv_change_ratio_20": 0.1,
+                "ad_change_ratio_20": 0.1,
+            },
+        ]
+
+        result = rank_technical_candidates(
+            candidates,
+            max_candidates=2,
+        )
+
+        self.assertEqual(
+            [candidate["ticker"] for candidate in result],
+            ["NVDA", "AAPL"],
+        )
+        self.assertEqual(result[0]["footprint_strength"], 0.7)
+        self.assertEqual(result[0]["technical_rank"], 1)
+        self.assertEqual(result[1]["technical_rank"], 2)
+
     def test_prepares_unique_sorted_tickers(self) -> None:
         """Symbols are normalized, deduplicated, and sorted."""
         symbols = ["nvda", "MSFT", "NVDA", "aapl"]
@@ -187,14 +229,17 @@ class MarketScannerTests(unittest.TestCase):
                 "ticker": "NVDA",
                 "price": 220.0,
                 "ma20": 210.5,
+                "price_vs_ma20_pct": 4.51,
                 "ma60": 190.5,
                 "ma150": 145.5,
                 "ma200": 120.5,
                 "average_volume_20": 1_000_000,
                 "obv": 219_000_000.0,
                 "obv_change_20": 20_000_000.0,
+                "obv_change_ratio_20": 1.0,
                 "ad": 0.0,
                 "ad_change_20": 0.0,
+                "ad_change_ratio_20": 0.0,
                 "rsi14": 100.0,
             },
         )
