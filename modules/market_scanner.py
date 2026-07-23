@@ -4,9 +4,11 @@ import csv
 import re
 from io import StringIO
 
+import pandas as pd
 import requests
 import yfinance as yf
 
+from modules.market_data import calculate_indicators
 from modules.watchlist import normalize_ticker
 
 
@@ -19,6 +21,8 @@ OTHER_LISTED_URL = (
 DIRECTORY_TIMEOUT_SECONDS = 30
 MARKET_DATA_BATCH_SIZE = 100
 MARKET_DATA_PERIOD = "1mo"
+TECHNICAL_DATA_PERIOD = "2y"
+TECHNICAL_DATA_INTERVAL = "1d"
 EXCLUDED_SECURITY_PATTERN = re.compile(
     r"\b("
     r"warrants?|"
@@ -212,6 +216,207 @@ def collect_market_rows(
             )
 
     return sorted(market_rows, key=lambda row: row["ticker"])
+def build_technical_snapshot(
+    ticker: str,
+    data: pd.DataFrame,
+) -> dict[str, object] | None:
+    """Build the latest technical-indicator snapshot for one stock.
+
+    Input:
+        ticker: Stock ticker being analyzed.
+        data: Historical OHLCV data with enough rows for MA200.
+    Output:
+        Latest technical values, or None when required data is unavailable.
+    Role:
+        Convert historical data into second-stage scanner inputs.
+    """
+    required_columns = {"Close", "High", "Low", "Volume"}
+
+    if data.empty or not required_columns.issubset(data.columns):
+        return None
+
+    indicators = calculate_indicators(data)
+    indicator_columns = [
+        "Close",
+        "MA20",
+        "MA60",
+        "MA150",
+        "MA200",
+        "VOLUME20",
+        "OBV",
+        "AD",
+        "RSI14",
+    ]
+    latest = indicators.iloc[-1]
+
+    if latest[indicator_columns].isna().any():
+        return None
+
+    twenty_sessions_ago = indicators.iloc[-21]
+    obv_change_20 = latest["OBV"] - twenty_sessions_ago["OBV"]
+    ad_change_20 = latest["AD"] - twenty_sessions_ago["AD"]
+
+    return {
+        "ticker": normalize_ticker(ticker),
+        "price": round(float(latest["Close"]), 2),
+        "ma20": round(float(latest["MA20"]), 2),
+        "ma60": round(float(latest["MA60"]), 2),
+        "ma150": round(float(latest["MA150"]), 2),
+        "ma200": round(float(latest["MA200"]), 2),
+        "average_volume_20": round(float(latest["VOLUME20"])),
+        "obv": round(float(latest["OBV"]), 2),
+        "obv_change_20": round(float(obv_change_20), 2),
+        "ad": round(float(latest["AD"]), 2),
+        "ad_change_20": round(float(ad_change_20), 2),
+        "rsi14": round(float(latest["RSI14"]), 2),
+    }
+
+def collect_technical_rows(
+    candidates: list[dict[str, object]],
+    batch_size: int = MARKET_DATA_BATCH_SIZE,
+) -> list[dict[str, object]]:
+    """Collect technical snapshots only for liquid market candidates.
+
+    Input:
+        candidates: Stocks that passed the first-stage liquidity filter.
+        batch_size: Number of tickers downloaded in each provider request.
+    Output:
+        Latest valid technical-indicator snapshots sorted by ticker.
+    Role:
+        Limit expensive two-year data collection to liquid candidates.
+    """
+    if batch_size <= 0:
+        raise ValueError("technical data batch size must be positive")
+
+    candidate_tickers = prepare_market_universe(
+        [
+            str(candidate["ticker"])
+            for candidate in candidates
+            if isinstance(candidate, dict) and "ticker" in candidate
+        ]
+    )
+    technical_rows = []
+
+    for start in range(0, len(candidate_tickers), batch_size):
+        ticker_batch = candidate_tickers[start : start + batch_size]
+        provider_tickers = [
+            ticker.replace(".", "-")
+            for ticker in ticker_batch
+        ]
+
+        try:
+            history = yf.download(
+                provider_tickers,
+                period=TECHNICAL_DATA_PERIOD,
+                interval=TECHNICAL_DATA_INTERVAL,
+                group_by="column",
+                auto_adjust=False,
+                progress=False,
+                threads=True,
+                timeout=DIRECTORY_TIMEOUT_SECONDS,
+            )
+        except Exception:
+            # Skip one failed provider batch and continue the full scan.
+            continue
+
+        if history.empty:
+            continue
+
+        has_multiple_column_levels = (
+            getattr(history.columns, "nlevels", 1) > 1
+        )
+
+        for ticker, provider_ticker in zip(
+            ticker_batch,
+            provider_tickers,
+        ):
+            try:
+                if has_multiple_column_levels:
+                    ticker_history = pd.DataFrame(
+                        {
+                            "Close": history[("Close", provider_ticker)],
+                            "High": history[("High", provider_ticker)],
+                            "Low": history[("Low", provider_ticker)],
+                            "Volume": history[("Volume", provider_ticker)],
+                        }
+                    )
+                else:
+                    ticker_history = history[
+                        ["Close", "High", "Low", "Volume"]
+                    ].copy()
+
+                snapshot = build_technical_snapshot(
+                    ticker,
+                    ticker_history,
+                )
+            except (KeyError, TypeError, ValueError):
+                # One incomplete ticker must not stop other candidates.
+                continue
+
+            if snapshot is not None:
+                technical_rows.append(snapshot)
+
+    return sorted(
+        technical_rows,
+        key=lambda row: row["ticker"],
+    )
+
+def filter_technical_candidates(
+    technical_rows: list[dict[str, object]],
+    min_rsi: float,
+    require_above_ma20: bool,
+    require_rising_obv: bool,
+    require_rising_ad: bool,
+) -> list[dict[str, object]]:
+    """Filter liquid candidates using configurable technical rules.
+
+    Input:
+        technical_rows: Latest indicator snapshots for liquid stocks.
+        min_rsi: Minimum acceptable RSI14 value.
+        require_above_ma20: Whether price must be above MA20.
+        require_rising_obv: Whether 20-session OBV change must be positive.
+        require_rising_ad: Whether 20-session A/D change must be positive.
+    Output:
+        Technical candidates that satisfy every enabled rule.
+    Role:
+        Apply the second-stage SJ technical screening principles.
+    """
+    if min_rsi < 0 or min_rsi > 100:
+        raise ValueError("minimum RSI must be between 0 and 100")
+
+    candidates = []
+
+    for row in technical_rows:
+        try:
+            price = float(row["price"])
+            ma20 = float(row["ma20"])
+            rsi14 = float(row["rsi14"])
+            obv_change_20 = float(row["obv_change_20"])
+            ad_change_20 = float(row["ad_change_20"])
+        except (KeyError, TypeError, ValueError):
+            # Skip incomplete rows without stopping the market scan.
+            continue
+
+        if rsi14 < min_rsi:
+            continue
+
+        if require_above_ma20 and price <= ma20:
+            continue
+
+        if require_rising_obv and obv_change_20 <= 0:
+            continue
+
+        if require_rising_ad and ad_change_20 <= 0:
+            continue
+
+        candidates.append(row)
+
+    return sorted(
+        candidates,
+        key=lambda candidate: str(candidate["ticker"]),
+    )
+
+
 def filter_market_candidates(
     market_rows: list[dict[str, object]],
     min_price: float,
@@ -295,3 +500,41 @@ def scan_us_market(
         min_average_volume=min_average_volume,
         min_average_dollar_volume=min_average_dollar_volume,
     )
+
+def scan_us_market_technical_candidates(
+    min_price: float,
+    min_average_volume: int,
+    min_average_dollar_volume: float,
+    min_rsi: float,
+    require_above_ma20: bool,
+    require_rising_obv: bool,
+    require_rising_ad: bool,
+    batch_size: int = MARKET_DATA_BATCH_SIZE,
+) -> list[dict[str, object]]:
+    """Run the connected liquidity and technical market scan.
+
+    Input:
+        Liquidity thresholds, technical rules, and provider batch size.
+    Output:
+        Full-market candidates that pass both scanner stages.
+    Role:
+        Connect low-cost liquidity filtering to focused technical analysis.
+    """
+    liquidity_candidates = scan_us_market(
+        min_price=min_price,
+        min_average_volume=min_average_volume,
+        min_average_dollar_volume=min_average_dollar_volume,
+        batch_size=batch_size,
+    )
+    technical_rows = collect_technical_rows(
+        liquidity_candidates,
+        batch_size=batch_size,
+    )
+
+    return filter_technical_candidates(
+        technical_rows,
+        min_rsi=min_rsi,
+        require_above_ma20=require_above_ma20,
+        require_rising_obv=require_rising_obv,
+        require_rising_ad=require_rising_ad,
+    )    

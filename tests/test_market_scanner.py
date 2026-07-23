@@ -7,13 +7,17 @@ import pandas as pd
 from modules.market_scanner import (
     DIRECTORY_TIMEOUT_SECONDS,
     NASDAQ_LISTED_URL,
+    build_technical_snapshot,
     collect_market_rows,
+    collect_technical_rows,
     collect_us_market_universe,
     download_symbol_directory,
     filter_market_candidates,
+    filter_technical_candidates,
     is_supported_stock,
     parse_symbol_directory,
     scan_us_market,
+    scan_us_market_technical_candidates,
     prepare_market_universe,
 )
 
@@ -129,6 +133,159 @@ class MarketScannerTests(unittest.TestCase):
         for security_name in excluded_names:
             with self.subTest(security_name=security_name):
                 self.assertFalse(is_supported_stock(security_name))
+    def test_skips_incomplete_technical_history(self) -> None:
+        """Insufficient history does not produce unreliable MA200 data."""
+        close_values = pd.Series(
+            range(1, 101),
+            dtype="float64",
+        )
+        history = pd.DataFrame(
+            {
+                "Close": close_values,
+                "High": close_values + 1.0,
+                "Low": close_values - 1.0,
+                "Volume": 1_000_000,
+            }
+        )
+
+        result = build_technical_snapshot("NVDA", history)
+
+        self.assertIsNone(result)
+
+    def test_builds_latest_technical_snapshot(self) -> None:
+        """Historical OHLCV data becomes one latest technical snapshot."""
+        close_values = pd.Series(
+            range(1, 221),
+            dtype="float64",
+        )
+        history = pd.DataFrame(
+            {
+                "Close": close_values,
+                "High": close_values + 1.0,
+                "Low": close_values - 1.0,
+                "Volume": 1_000_000,
+            }
+        )
+
+        result = build_technical_snapshot("nvda", history)
+
+        self.assertEqual(
+            result,
+            {
+                "ticker": "NVDA",
+                "price": 220.0,
+                "ma20": 210.5,
+                "ma60": 190.5,
+                "ma150": 145.5,
+                "ma200": 120.5,
+                "average_volume_20": 1_000_000,
+                "obv": 219_000_000.0,
+                "obv_change_20": 20_000_000.0,
+                "ad": 0.0,
+                "ad_change_20": 0.0,
+                "rsi14": 100.0,
+            },
+        )
+    def test_collects_technical_rows_for_liquid_candidates(self) -> None:
+        """Only supplied liquid candidates receive technical snapshots."""
+        close_values = pd.Series(
+            range(1, 221),
+            dtype="float64",
+        )
+        columns = pd.MultiIndex.from_tuples(
+            [
+                ("Close", "NVDA"),
+                ("High", "NVDA"),
+                ("Low", "NVDA"),
+                ("Volume", "NVDA"),
+            ]
+        )
+        history = pd.DataFrame(
+            {
+                columns[0]: close_values,
+                columns[1]: close_values + 1.0,
+                columns[2]: close_values - 1.0,
+                columns[3]: 1_000_000,
+            }
+        )
+        candidates = [
+            {
+                "ticker": "NVDA",
+                "price": 220.0,
+                "average_volume": 1_000_000,
+                "average_dollar_volume": 220_000_000.0,
+            }
+        ]
+
+        with patch(
+            "modules.market_scanner.yf.download",
+            return_value=history,
+        ) as downloader:
+            result = collect_technical_rows(candidates)
+
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]["ticker"], "NVDA")
+        self.assertEqual(result[0]["price"], 220.0)
+        self.assertEqual(result[0]["ma200"], 120.5)
+        self.assertEqual(result[0]["rsi14"], 100.0)
+        downloader.assert_called_once()
+    def test_filters_candidates_by_technical_rules(self) -> None:
+        """Only stocks satisfying every enabled technical rule remain."""
+        technical_rows = [
+            {
+                "ticker": "PASS",
+                "price": 110.0,
+                "ma20": 100.0,
+                "rsi14": 60.0,
+                "obv_change_20": 5_000_000.0,
+                "ad_change_20": 2_000_000.0,
+            },
+            {
+                "ticker": "LOWRSI",
+                "price": 110.0,
+                "ma20": 100.0,
+                "rsi14": 45.0,
+                "obv_change_20": 5_000_000.0,
+                "ad_change_20": 2_000_000.0,
+            },
+            {
+                "ticker": "BELOWMA",
+                "price": 95.0,
+                "ma20": 100.0,
+                "rsi14": 60.0,
+                "obv_change_20": 5_000_000.0,
+                "ad_change_20": 2_000_000.0,
+            },
+            {
+                "ticker": "FALLOBV",
+                "price": 110.0,
+                "ma20": 100.0,
+                "rsi14": 60.0,
+                "obv_change_20": -1.0,
+                "ad_change_20": 2_000_000.0,
+            },
+            {
+                "ticker": "FALLAD",
+                "price": 110.0,
+                "ma20": 100.0,
+                "rsi14": 60.0,
+                "obv_change_20": 5_000_000.0,
+                "ad_change_20": -1.0,
+            },
+        ]
+
+        result = filter_technical_candidates(
+            technical_rows,
+            min_rsi=50.0,
+            require_above_ma20=True,
+            require_rising_obv=True,
+            require_rising_ad=True,
+        )
+
+        self.assertEqual(
+            [candidate["ticker"] for candidate in result],
+            ["PASS"],
+        )
 
     def test_filters_candidates_by_price_and_liquidity(self) -> None:
         """Only stocks meeting every configured threshold remain."""
@@ -280,6 +437,71 @@ class MarketScannerTests(unittest.TestCase):
             ],
         )
         self.assertEqual(downloader.call_count, 2)
+    def test_connects_liquidity_and_technical_scan_stages(self) -> None:
+        """The combined scan runs liquidity collection before technical rules."""
+        liquidity_candidates = [
+            {
+                "ticker": "NVDA",
+                "price": 220.0,
+                "average_volume": 1_000_000,
+                "average_dollar_volume": 220_000_000.0,
+            }
+        ]
+        technical_rows = [
+            {
+                "ticker": "NVDA",
+                "price": 220.0,
+                "ma20": 210.0,
+                "rsi14": 60.0,
+                "obv_change_20": 5_000_000.0,
+                "ad_change_20": 2_000_000.0,
+            }
+        ]
+
+        with (
+            patch(
+                "modules.market_scanner.scan_us_market",
+                return_value=liquidity_candidates,
+            ) as liquidity_scanner,
+            patch(
+                "modules.market_scanner.collect_technical_rows",
+                return_value=technical_rows,
+            ) as technical_collector,
+            patch(
+                "modules.market_scanner.filter_technical_candidates",
+                return_value=technical_rows,
+            ) as technical_filter,
+        ):
+            result = scan_us_market_technical_candidates(
+                min_price=5.0,
+                min_average_volume=500_000,
+                min_average_dollar_volume=20_000_000,
+                min_rsi=50.0,
+                require_above_ma20=True,
+                require_rising_obv=True,
+                require_rising_ad=True,
+                batch_size=50,
+            )
+
+        self.assertEqual(result, technical_rows)
+        liquidity_scanner.assert_called_once_with(
+            min_price=5.0,
+            min_average_volume=500_000,
+            min_average_dollar_volume=20_000_000,
+            batch_size=50,
+        )
+        technical_collector.assert_called_once_with(
+            liquidity_candidates,
+            batch_size=50,
+        )
+        technical_filter.assert_called_once_with(
+            technical_rows,
+            min_rsi=50.0,
+            require_above_ma20=True,
+            require_rising_obv=True,
+            require_rising_ad=True,
+        )
+
     def test_scans_market_from_universe_to_candidates(self) -> None:
         """The full scan connects universe, market data, and filtering."""
         universe = ["AAPL", "NVDA"]
