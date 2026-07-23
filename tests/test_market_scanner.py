@@ -7,6 +7,7 @@ from modules.market_scanner import (
     NASDAQ_LISTED_URL,
     collect_us_market_universe,
     download_symbol_directory,
+    filter_market_candidates,
     is_supported_stock,
     parse_symbol_directory,
     prepare_market_universe,
@@ -124,5 +125,64 @@ class MarketScannerTests(unittest.TestCase):
         for security_name in excluded_names:
             with self.subTest(security_name=security_name):
                 self.assertFalse(is_supported_stock(security_name))
+
+    def test_filters_candidates_by_price_and_liquidity(self) -> None:
+        """Only stocks meeting every configured threshold remain."""
+        market_rows = [
+            {
+                "ticker": "NVDA",
+                "price": 180.0,
+                "average_volume": 2_000_000,
+            },
+            {
+                "ticker": "CHEAP",
+                "price": 3.0,
+                "average_volume": 5_000_000,
+            },
+            {
+                "ticker": "THIN",
+                "price": 50.0,
+                "average_volume": 50_000,
+            },
+            {
+                "ticker": "MISSING",
+                "price": None,
+                "average_volume": 1_000_000,
+            },
+        ]
+
+        result = filter_market_candidates(
+            market_rows,
+            min_price=5.0,
+            min_average_volume=500_000,
+            min_average_dollar_volume=20_000_000,
+        )
+
+        self.assertEqual(
+            result,
+            [
+                {
+                    "ticker": "NVDA",
+                    "price": 180.0,
+                    "average_volume": 2_000_000,
+                    "average_dollar_volume": 360_000_000.0,
+                }
+            ],
+        )
+
+    def test_rejects_negative_scanner_thresholds(self) -> None:
+        """Negative price or liquidity settings raise a clear error."""
+        with self.assertRaisesRegex(
+            ValueError,
+            "scanner thresholds cannot be negative",
+        ):
+            filter_market_candidates(
+                [],
+                min_price=-1.0,
+                min_average_volume=500_000,
+                min_average_dollar_volume=20_000_000,
+            )
+
+
 if __name__ == "__main__":
     unittest.main()

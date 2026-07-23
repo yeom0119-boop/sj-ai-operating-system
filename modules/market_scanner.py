@@ -132,5 +132,63 @@ def collect_us_market_universe() -> list[str]:
     return prepare_market_universe(nasdaq_symbols + other_symbols)
 
 
+def filter_market_candidates(
+    market_rows: list[dict[str, object]],
+    min_price: float,
+    min_average_volume: int,
+    min_average_dollar_volume: float,
+) -> list[dict[str, object]]:
+    """Filter the market universe by price and trading liquidity.
+
+    Input: ticker market rows and configurable minimum thresholds.
+    Output: sorted candidate rows that satisfy every threshold.
+    Role: reduce the full market before expensive deep analysis.
+    """
+    if (
+        min_price < 0
+        or min_average_volume < 0
+        or min_average_dollar_volume < 0
+    ):
+        raise ValueError("scanner thresholds cannot be negative")
+
+    candidates = []
+
+    for row in market_rows:
+        try:
+            ticker = normalize_ticker(str(row["ticker"]))
+            price = float(row["price"])
+            average_volume = float(row["average_volume"])
+        except (KeyError, TypeError, ValueError):
+            # Skip incomplete provider rows without stopping the full scan.
+            continue
+
+        if price < 0 or average_volume < 0:
+            continue
+
+        average_dollar_volume = price * average_volume
+
+        if price < min_price:
+            continue
+
+        if average_volume < min_average_volume:
+            continue
+
+        if average_dollar_volume < min_average_dollar_volume:
+            continue
+
+        candidates.append(
+            {
+                "ticker": ticker,
+                "price": round(price, 2),
+                "average_volume": round(average_volume),
+                "average_dollar_volume": round(
+                    average_dollar_volume,
+                    2,
+                ),
+            }
+        )
+
+    return sorted(candidates, key=lambda candidate: candidate["ticker"])
+
 
 # TODO: Add configurable liquidity and price filters.
