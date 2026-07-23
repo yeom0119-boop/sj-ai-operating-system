@@ -2,9 +2,12 @@
 
 import unittest
 from unittest.mock import Mock, patch
+
+import pandas as pd
 from modules.market_scanner import (
     DIRECTORY_TIMEOUT_SECONDS,
     NASDAQ_LISTED_URL,
+    collect_market_rows,
     collect_us_market_universe,
     download_symbol_directory,
     filter_market_candidates,
@@ -169,7 +172,113 @@ class MarketScannerTests(unittest.TestCase):
                 }
             ],
         )
+    def test_collects_price_and_average_volume_rows(self) -> None:
+        """Batch market data becomes rows used by the liquidity filter."""
+        columns = pd.MultiIndex.from_tuples(
+            [
+                ("Close", "MSFT"),
+                ("Close", "NVDA"),
+                ("Volume", "MSFT"),
+                ("Volume", "NVDA"),
+            ]
+        )
+        history = pd.DataFrame(
+            [
+                [420.0, 180.0, 900_000, 1_800_000],
+                [421.0, 182.0, 1_100_000, 2_200_000],
+            ],
+            columns=columns,
+        )
 
+        with patch(
+            "modules.market_scanner.yf.download",
+            return_value=history,
+        ) as downloader:
+            result = collect_market_rows(["NVDA", "MSFT"])
+
+        self.assertEqual(
+            result,
+            [
+                {
+                    "ticker": "MSFT",
+                    "price": 421.0,
+                    "average_volume": 1_000_000,
+                },
+                {
+                    "ticker": "NVDA",
+                    "price": 182.0,
+                    "average_volume": 2_000_000,
+                },
+            ],
+        )
+        downloader.assert_called_once()
+    def test_splits_market_downloads_into_batches(self) -> None:
+        """A large universe is downloaded in configured-size batches."""
+        first_columns = pd.MultiIndex.from_tuples(
+            [
+                ("Close", "AAPL"),
+                ("Close", "MSFT"),
+                ("Volume", "AAPL"),
+                ("Volume", "MSFT"),
+            ]
+        )
+        first_history = pd.DataFrame(
+            [[200.0, 420.0, 1_000_000, 900_000]],
+            columns=first_columns,
+        )
+        second_history = pd.DataFrame(
+            {
+                "Close": [180.0],
+                "Volume": [2_000_000],
+            }
+        )
+
+        with patch(
+            "modules.market_scanner.yf.download",
+            side_effect=[first_history, second_history],
+        ) as downloader:
+            result = collect_market_rows(
+                ["NVDA", "MSFT", "AAPL"],
+                batch_size=2,
+            )
+
+        self.assertEqual(
+            [row["ticker"] for row in result],
+            ["AAPL", "MSFT", "NVDA"],
+        )
+        self.assertEqual(downloader.call_count, 2)
+    def test_continues_after_one_market_batch_fails(self) -> None:
+        """One provider batch failure does not stop later batches."""
+        successful_history = pd.DataFrame(
+            {
+                "Close": [182.0],
+                "Volume": [2_000_000],
+            }
+        )
+
+        with patch(
+            "modules.market_scanner.yf.download",
+            side_effect=[
+                RuntimeError("temporary provider failure"),
+                successful_history,
+            ],
+        ) as downloader:
+            result = collect_market_rows(
+                ["AAPL", "NVDA"],
+                batch_size=1,
+            )
+
+        self.assertEqual(
+            result,
+            [
+                {
+                    "ticker": "NVDA",
+                    "price": 182.0,
+                    "average_volume": 2_000_000,
+                }
+            ],
+        )
+        self.assertEqual(downloader.call_count, 2)
     def test_rejects_negative_scanner_thresholds(self) -> None:
         """Negative price or liquidity settings raise a clear error."""
         with self.assertRaisesRegex(

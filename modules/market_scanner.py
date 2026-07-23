@@ -5,6 +5,7 @@ import re
 from io import StringIO
 
 import requests
+import yfinance as yf
 
 from modules.watchlist import normalize_ticker
 
@@ -16,6 +17,8 @@ OTHER_LISTED_URL = (
     "https://www.nasdaqtrader.com/dynamic/symdir/otherlisted.txt"
 )
 DIRECTORY_TIMEOUT_SECONDS = 30
+MARKET_DATA_BATCH_SIZE = 100
+MARKET_DATA_PERIOD = "1mo"
 EXCLUDED_SECURITY_PATTERN = re.compile(
     r"\b("
     r"warrants?|"
@@ -131,7 +134,84 @@ def collect_us_market_universe() -> list[str]:
 
     return prepare_market_universe(nasdaq_symbols + other_symbols)
 
+def collect_market_rows(
+    tickers: list[str],
+    batch_size: int = MARKET_DATA_BATCH_SIZE,
+) -> list[dict[str, object]]:
+    """Collect latest price and average volume in manageable batches.
 
+    Input: market ticker symbols and the number downloaded per request.
+    Output: normalized rows containing ticker, price, and average volume.
+    Role: prepare full-market liquidity data before candidate filtering.
+    """
+    if batch_size <= 0:
+        raise ValueError("market data batch size must be positive")
+
+    normalized_tickers = prepare_market_universe(tickers)
+    market_rows = []
+
+    for start in range(0, len(normalized_tickers), batch_size):
+        ticker_batch = normalized_tickers[start : start + batch_size]
+        provider_tickers = [
+            ticker.replace(".", "-")
+            for ticker in ticker_batch
+        ]
+
+        try:
+            history = yf.download(
+                provider_tickers,
+                period=MARKET_DATA_PERIOD,
+                interval="1d",
+                group_by="column",
+                auto_adjust=False,
+                progress=False,
+                threads=True,
+                timeout=DIRECTORY_TIMEOUT_SECONDS,
+            )
+        except Exception:
+            # Skip one failed provider batch and continue the full scan.
+            continue
+
+        if history.empty:
+            continue
+
+        has_multiple_column_levels = (
+            getattr(history.columns, "nlevels", 1) > 1
+        )
+
+        for ticker, provider_ticker in zip(
+            ticker_batch,
+            provider_tickers,
+        ):
+            try:
+                if has_multiple_column_levels:
+                    close_values = history[("Close", provider_ticker)]
+                    volume_values = history[("Volume", provider_ticker)]
+                else:
+                    close_values = history["Close"]
+                    volume_values = history["Volume"]
+
+                valid_close_values = close_values.dropna()
+                valid_volume_values = volume_values.dropna()
+
+                if valid_close_values.empty or valid_volume_values.empty:
+                    continue
+
+                price = float(valid_close_values.iloc[-1])
+                average_volume = float(valid_volume_values.mean())
+            except (KeyError, TypeError, ValueError):
+                # One unavailable ticker must not stop the full-market scan.
+                continue
+
+            market_rows.append(
+                {
+                    "ticker": ticker,
+                    "price": round(price, 2),
+                    "average_volume": round(average_volume),
+                }
+            )
+
+    return sorted(market_rows, key=lambda row: row["ticker"])
 def filter_market_candidates(
     market_rows: list[dict[str, object]],
     min_price: float,
