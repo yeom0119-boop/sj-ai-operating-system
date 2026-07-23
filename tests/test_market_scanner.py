@@ -2,7 +2,10 @@
 
 import unittest
 
-from modules.market_scanner import prepare_market_universe
+from modules.market_scanner import (
+    parse_symbol_directory,
+    prepare_market_universe,
+)
 
 
 class MarketScannerTests(unittest.TestCase):
@@ -27,6 +30,30 @@ class MarketScannerTests(unittest.TestCase):
     def test_empty_input_returns_empty_list(self) -> None:
         """An empty source list produces an empty market universe."""
         self.assertEqual(prepare_market_universe([]), [])
+
+    def test_parses_stocks_and_excludes_etfs_and_test_issues(self) -> None:
+        """Official directory parsing keeps stocks and removes excluded rows."""
+        directory_text = (
+            "Symbol|Security Name|Test Issue|ETF\n"
+            "NVDA|NVIDIA Corporation|N|N\n"
+            "QQQ|Invesco QQQ Trust|N|Y\n"
+            "ZTEST|Nasdaq Test Stock|Y|N\n"
+            "File Creation Time: 07232026||||\n"
+        )
+
+        result = parse_symbol_directory(directory_text, "Symbol")
+
+        self.assertEqual(result, ["NVDA"])
+
+    def test_rejects_directory_without_symbol_column(self) -> None:
+        """A provider format change raises a clear error."""
+        directory_text = "Wrong Column|Test Issue|ETF\nNVDA|N|N\n"
+
+        with self.assertRaisesRegex(
+            ValueError,
+            "symbol directory is missing column: Symbol",
+        ):
+            parse_symbol_directory(directory_text, "Symbol")
 
 
 if __name__ == "__main__":
