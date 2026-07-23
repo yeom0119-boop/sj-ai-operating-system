@@ -1,8 +1,12 @@
 """Tests for the full-market scanner module."""
 
 import unittest
-
+from unittest.mock import Mock, patch
 from modules.market_scanner import (
+    DIRECTORY_TIMEOUT_SECONDS,
+    NASDAQ_LISTED_URL,
+    collect_us_market_universe,
+    download_symbol_directory,
     parse_symbol_directory,
     prepare_market_universe,
 )
@@ -54,6 +58,48 @@ class MarketScannerTests(unittest.TestCase):
             "symbol directory is missing column: Symbol",
         ):
             parse_symbol_directory(directory_text, "Symbol")
+
+
+    def test_downloads_symbol_directory_with_timeout(self) -> None:
+        """Official directory requests use a timeout and return text."""
+        response = Mock()
+        response.text = "Symbol|Security Name\nNVDA|NVIDIA Corporation\n"
+
+        with patch(
+            "modules.market_scanner.requests.get",
+            return_value=response,
+        ) as request_get:
+            result = download_symbol_directory(NASDAQ_LISTED_URL)
+
+        self.assertEqual(result, response.text)
+        request_get.assert_called_once_with(
+            NASDAQ_LISTED_URL,
+            timeout=DIRECTORY_TIMEOUT_SECONDS,
+            headers={"User-Agent": "SJ AI Operating System/2.0"},
+        )
+        response.raise_for_status.assert_called_once_with()
+
+    def test_collects_and_combines_exchange_directories(self) -> None:
+        """Nasdaq and other-exchange symbols become one unique universe."""
+        nasdaq_text = (
+            "Symbol|Security Name|Test Issue|ETF\n"
+            "NVDA|NVIDIA Corporation|N|N\n"
+            "QQQ|Invesco QQQ Trust|N|Y\n"
+        )
+        other_text = (
+            "ACT Symbol|Security Name|Test Issue|ETF\n"
+            "MSFT|Microsoft Corporation|N|N\n"
+            "NVDA|NVIDIA Corporation|N|N\n"
+        )
+
+        with patch(
+            "modules.market_scanner.download_symbol_directory",
+            side_effect=[nasdaq_text, other_text],
+        ) as downloader:
+            result = collect_us_market_universe()
+
+        self.assertEqual(result, ["MSFT", "NVDA"])
+        self.assertEqual(downloader.call_count, 2)
 
 
 if __name__ == "__main__":
