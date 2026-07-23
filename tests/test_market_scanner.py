@@ -34,11 +34,57 @@ class MarketScannerTests(unittest.TestCase):
         self.assertEqual(config["min_average_volume"], 500000)
         self.assertEqual(config["min_average_dollar_volume"], 20000000)
         self.assertEqual(config["min_rsi"], 50.0)
+        self.assertEqual(config["max_rsi"], 75.0)
+        self.assertEqual(config["max_price_vs_ma20_pct"], 10.0)
         self.assertTrue(config["require_above_ma20"])
         self.assertTrue(config["require_rising_obv"])
         self.assertTrue(config["require_rising_ad"])
         self.assertEqual(config["batch_size"], 100)
         self.assertEqual(config["max_candidates"], 10)
+
+    def test_excludes_overheated_technical_candidates(self) -> None:
+        """High RSI and excessive MA20 extension are excluded."""
+        technical_rows = [
+            {
+                "ticker": "PASS",
+                "price": 105.0,
+                "ma20": 100.0,
+                "rsi14": 65.0,
+                "obv_change_20": 1.0,
+                "ad_change_20": 1.0,
+            },
+            {
+                "ticker": "HOT_RSI",
+                "price": 105.0,
+                "ma20": 100.0,
+                "rsi14": 80.0,
+                "obv_change_20": 1.0,
+                "ad_change_20": 1.0,
+            },
+            {
+                "ticker": "EXTENDED",
+                "price": 115.0,
+                "ma20": 100.0,
+                "rsi14": 65.0,
+                "obv_change_20": 1.0,
+                "ad_change_20": 1.0,
+            },
+        ]
+
+        result = filter_technical_candidates(
+            technical_rows,
+            min_rsi=50.0,
+            max_rsi=75.0,
+            max_price_vs_ma20_pct=10.0,
+            require_above_ma20=True,
+            require_rising_obv=True,
+            require_rising_ad=True,
+        )
+
+        self.assertEqual(
+            [candidate["ticker"] for candidate in result],
+            ["PASS"],
+        )
 
     def test_ranks_and_limits_technical_candidates(self) -> None:
         """Normalized footprint strength controls deep-analysis priority."""
@@ -334,6 +380,8 @@ class MarketScannerTests(unittest.TestCase):
         result = filter_technical_candidates(
             technical_rows,
             min_rsi=50.0,
+            max_rsi=100.0,
+            max_price_vs_ma20_pct=100.0,
             require_above_ma20=True,
             require_rising_obv=True,
             require_rising_ad=True,
@@ -533,7 +581,9 @@ class MarketScannerTests(unittest.TestCase):
                 min_price=5.0,
                 min_average_volume=500_000,
                 min_average_dollar_volume=20_000_000,
-                min_rsi=50.0,
+                                min_rsi=50.0,
+                max_rsi=75.0,
+                max_price_vs_ma20_pct=10.0,
                 require_above_ma20=True,
                 require_rising_obv=True,
                 require_rising_ad=True,
@@ -554,6 +604,8 @@ class MarketScannerTests(unittest.TestCase):
         technical_filter.assert_called_once_with(
             technical_rows,
             min_rsi=50.0,
+            max_rsi=75.0,
+            max_price_vs_ma20_pct=10.0,
             require_above_ma20=True,
             require_rising_obv=True,
             require_rising_ad=True,

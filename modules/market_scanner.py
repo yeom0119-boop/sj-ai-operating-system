@@ -68,6 +68,8 @@ def load_market_scanner_config(
         "min_average_volume",
         "min_average_dollar_volume",
         "min_rsi",
+        "max_rsi",
+        "max_price_vs_ma20_pct",
         "require_above_ma20",
         "require_rising_obv",
         "require_rising_ad",
@@ -83,7 +85,6 @@ def load_market_scanner_config(
         )
 
     return config
-
 
 def is_supported_stock(security_name: str) -> bool:
     """Return whether a security description represents a supported stock.
@@ -426,6 +427,8 @@ def collect_technical_rows(
 def filter_technical_candidates(
     technical_rows: list[dict[str, object]],
     min_rsi: float,
+    max_rsi: float,
+    max_price_vs_ma20_pct: float,
     require_above_ma20: bool,
     require_rising_obv: bool,
     require_rising_ad: bool,
@@ -435,6 +438,8 @@ def filter_technical_candidates(
     Input:
         technical_rows: Latest indicator snapshots for liquid stocks.
         min_rsi: Minimum acceptable RSI14 value.
+        max_rsi: Maximum acceptable RSI14 value.
+        max_price_vs_ma20_pct: Maximum allowed price extension above MA20.
         require_above_ma20: Whether price must be above MA20.
         require_rising_obv: Whether 20-session OBV change must be positive.
         require_rising_ad: Whether 20-session A/D change must be positive.
@@ -443,8 +448,14 @@ def filter_technical_candidates(
     Role:
         Apply the second-stage SJ technical screening principles.
     """
-    if min_rsi < 0 or min_rsi > 100:
-        raise ValueError("minimum RSI must be between 0 and 100")
+    if (
+        min_rsi < 0
+        or max_rsi > 100
+        or min_rsi > max_rsi
+    ):
+        raise ValueError("RSI range must be between 0 and 100")
+    if max_price_vs_ma20_pct < 0:
+        raise ValueError("maximum MA20 extension cannot be negative")
 
     candidates = []
 
@@ -459,7 +470,14 @@ def filter_technical_candidates(
             # Skip incomplete rows without stopping the market scan.
             continue
 
-        if rsi14 < min_rsi:
+        if rsi14 < min_rsi or rsi14 > max_rsi:
+            continue
+
+        if ma20 <= 0:
+            continue
+
+        price_vs_ma20_pct = ((price / ma20) - 1) * 100
+        if price_vs_ma20_pct > max_price_vs_ma20_pct:
             continue
 
         if require_above_ma20 and price <= ma20:
@@ -621,6 +639,8 @@ def scan_us_market_technical_candidates(
     min_average_volume: int,
     min_average_dollar_volume: float,
     min_rsi: float,
+    max_rsi: float,
+    max_price_vs_ma20_pct: float,
     require_above_ma20: bool,
     require_rising_obv: bool,
     require_rising_ad: bool,
@@ -649,6 +669,8 @@ def scan_us_market_technical_candidates(
     return filter_technical_candidates(
         technical_rows,
         min_rsi=min_rsi,
+        max_rsi=max_rsi,
+        max_price_vs_ma20_pct=max_price_vs_ma20_pct,
         require_above_ma20=require_above_ma20,
         require_rising_obv=require_rising_obv,
         require_rising_ad=require_rising_ad,

@@ -582,6 +582,8 @@ def handle_scan_us_market() -> None:
                 config["min_average_dollar_volume"]
             ),
             min_rsi=float(config["min_rsi"]),
+            max_rsi=float(config["max_rsi"]),
+            max_price_vs_ma20_pct=float(config["max_price_vs_ma20_pct"]),
             require_above_ma20=bool(config["require_above_ma20"]),
             require_rising_obv=bool(config["require_rising_obv"]),
             require_rising_ad=bool(config["require_rising_ad"]),
