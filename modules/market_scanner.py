@@ -537,4 +537,4 @@ def scan_us_market_technical_candidates(
         require_above_ma20=require_above_ma20,
         require_rising_obv=require_rising_obv,
         require_rising_ad=require_rising_ad,
-    )    
+    )
