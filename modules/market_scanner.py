@@ -1,6 +1,7 @@
 """Prepare the U.S. stock universe for the Market Scanner."""
 
 import csv
+import re
 from io import StringIO
 
 import requests
@@ -15,7 +16,29 @@ OTHER_LISTED_URL = (
     "https://www.nasdaqtrader.com/dynamic/symdir/otherlisted.txt"
 )
 DIRECTORY_TIMEOUT_SECONDS = 30
+EXCLUDED_SECURITY_PATTERN = re.compile(
+    r"\b("
+    r"warrants?|"
+    r"rights?|"
+    r"units?|"
+    r"preferred stock|"
+    r"preferred shares?|"
+    r"senior notes?|"
+    r"notes due|"
+    r"debentures?"
+    r")\b",
+    re.IGNORECASE,
+)
 
+
+def is_supported_stock(security_name: str) -> bool:
+    """Return whether a security description represents a supported stock.
+
+    Input: official security name from an exchange directory.
+    Output: True for supported stocks and False for excluded security types.
+    Role: remove warrants, rights, units, preferred shares, and debt securities.
+    """
+    return EXCLUDED_SECURITY_PATTERN.search(security_name) is None
 
 def prepare_market_universe(symbols: list[str]) -> list[str]:
     """Return unique, validated ticker symbols for market scanning.
@@ -68,7 +91,11 @@ def parse_symbol_directory(
         if (row.get("ETF") or "").strip().upper() == "Y":
             continue
 
-        symbols.append(symbol)
+        security_name = (row.get("Security Name") or "").strip()
+        if not is_supported_stock(security_name):
+            continue
+
+        symbols.append(symbol)        
 
     return prepare_market_universe(symbols)
 
@@ -105,5 +132,5 @@ def collect_us_market_universe() -> list[str]:
     return prepare_market_universe(nasdaq_symbols + other_symbols)
 
 
-# TODO: Exclude warrants, rights, units, and preferred shares.
+
 # TODO: Add configurable liquidity and price filters.

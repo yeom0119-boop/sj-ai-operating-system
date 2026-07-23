@@ -7,6 +7,7 @@ from modules.market_scanner import (
     NASDAQ_LISTED_URL,
     collect_us_market_universe,
     download_symbol_directory,
+    is_supported_stock,
     parse_symbol_directory,
     prepare_market_universe,
 )
@@ -101,6 +102,27 @@ class MarketScannerTests(unittest.TestCase):
         self.assertEqual(result, ["MSFT", "NVDA"])
         self.assertEqual(downloader.call_count, 2)
 
+    def test_identifies_supported_and_excluded_security_types(self) -> None:
+        """Common stocks and ADRs remain while unsupported securities leave."""
+        supported_names = [
+            "NVIDIA Corporation - Common Stock",
+            "Alibaba Group Holding Limited - American Depositary Shares",
+            "Berkshire Hathaway Inc. - Class B Common Stock",
+        ]
+        excluded_names = [
+            "Example Acquisition Corp. - Warrants",
+            "Example Acquisition Corp. - Units",
+            "Example Acquisition Corp. - Rights",
+            "Example Corporation - Preferred Stock",
+            "Example Corporation - Senior Notes due 2030",
+        ]
 
+        for security_name in supported_names:
+            with self.subTest(security_name=security_name):
+                self.assertTrue(is_supported_stock(security_name))
+
+        for security_name in excluded_names:
+            with self.subTest(security_name=security_name):
+                self.assertFalse(is_supported_stock(security_name))
 if __name__ == "__main__":
     unittest.main()
