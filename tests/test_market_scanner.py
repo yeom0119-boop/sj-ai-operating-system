@@ -13,6 +13,7 @@ from modules.market_scanner import (
     filter_market_candidates,
     is_supported_stock,
     parse_symbol_directory,
+    scan_us_market,
     prepare_market_universe,
 )
 
@@ -279,6 +280,59 @@ class MarketScannerTests(unittest.TestCase):
             ],
         )
         self.assertEqual(downloader.call_count, 2)
+    def test_scans_market_from_universe_to_candidates(self) -> None:
+        """The full scan connects universe, market data, and filtering."""
+        universe = ["AAPL", "NVDA"]
+        market_rows = [
+            {
+                "ticker": "NVDA",
+                "price": 182.0,
+                "average_volume": 2_000_000,
+            }
+        ]
+        candidates = [
+            {
+                "ticker": "NVDA",
+                "price": 182.0,
+                "average_volume": 2_000_000,
+                "average_dollar_volume": 364_000_000.0,
+            }
+        ]
+
+        with (
+            patch(
+                "modules.market_scanner.collect_us_market_universe",
+                return_value=universe,
+            ) as universe_collector,
+            patch(
+                "modules.market_scanner.collect_market_rows",
+                return_value=market_rows,
+            ) as market_collector,
+            patch(
+                "modules.market_scanner.filter_market_candidates",
+                return_value=candidates,
+            ) as candidate_filter,
+        ):
+            result = scan_us_market(
+                min_price=5.0,
+                min_average_volume=500_000,
+                min_average_dollar_volume=20_000_000,
+                batch_size=50,
+            )
+
+        self.assertEqual(result, candidates)
+        universe_collector.assert_called_once_with()
+        market_collector.assert_called_once_with(
+            universe,
+            batch_size=50,
+        )
+        candidate_filter.assert_called_once_with(
+            market_rows,
+            min_price=5.0,
+            min_average_volume=500_000,
+            min_average_dollar_volume=20_000_000,
+        )
+
     def test_rejects_negative_scanner_thresholds(self) -> None:
         """Negative price or liquidity settings raise a clear error."""
         with self.assertRaisesRegex(

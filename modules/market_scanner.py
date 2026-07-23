@@ -271,4 +271,27 @@ def filter_market_candidates(
     return sorted(candidates, key=lambda candidate: candidate["ticker"])
 
 
-# TODO: Add configurable liquidity and price filters.
+def scan_us_market(
+    min_price: float,
+    min_average_volume: int,
+    min_average_dollar_volume: float,
+    batch_size: int = MARKET_DATA_BATCH_SIZE,
+) -> list[dict[str, object]]:
+    """Run the first-stage full U.S. market liquidity scan.
+
+    Input: configurable liquidity thresholds and provider batch size.
+    Output: market candidates that pass every first-stage filter.
+    Role: connect universe collection, market data, and filtering.
+    """
+    universe = collect_us_market_universe()
+    market_rows = collect_market_rows(
+        universe,
+        batch_size=batch_size,
+    )
+
+    return filter_market_candidates(
+        market_rows,
+        min_price=min_price,
+        min_average_volume=min_average_volume,
+        min_average_dollar_volume=min_average_dollar_volume,
+    )
