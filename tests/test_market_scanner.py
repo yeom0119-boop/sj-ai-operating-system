@@ -38,6 +38,7 @@ class MarketScannerTests(unittest.TestCase):
         self.assertEqual(config["max_price_vs_ma20_pct"], 10.0)
         self.assertTrue(config["require_above_ma20"])
         self.assertTrue(config["require_ma_alignment"])
+        self.assertTrue(config["require_rising_ma200"])
         self.assertTrue(config["require_rising_obv"])
         self.assertTrue(config["require_rising_ad"])
         self.assertEqual(config["batch_size"], 100)
@@ -84,6 +85,46 @@ class MarketScannerTests(unittest.TestCase):
         self.assertEqual(
             [candidate["ticker"] for candidate in result],
             ["ALIGNED"],
+        )
+    def test_filters_candidates_by_rising_ma200(self) -> None:
+        """Only candidates with a rising 200-day moving average pass."""
+        technical_rows = [
+            {
+                "ticker": "RISING",
+                "price": 110.0,
+                "ma20": 105.0,
+                "ma200": 80.0,
+                "ma200_20_sessions_ago": 78.0,
+                "rsi14": 60.0,
+                "obv_change_20": 1.0,
+                "ad_change_20": 1.0,
+            },
+            {
+                "ticker": "FALLING",
+                "price": 110.0,
+                "ma20": 105.0,
+                "ma200": 80.0,
+                "ma200_20_sessions_ago": 82.0,
+                "rsi14": 60.0,
+                "obv_change_20": 1.0,
+                "ad_change_20": 1.0,
+            },
+        ]
+
+        result = filter_technical_candidates(
+            technical_rows,
+            min_rsi=50.0,
+            max_rsi=75.0,
+            max_price_vs_ma20_pct=10.0,
+            require_above_ma20=True,
+            require_rising_obv=True,
+            require_rising_ad=True,
+            require_rising_ma200=True,
+        )
+
+        self.assertEqual(
+            [candidate["ticker"] for candidate in result],
+            ["RISING"],
         )
     def test_excludes_overheated_technical_candidates(self) -> None:
         """High RSI and excessive MA20 extension are excluded."""
@@ -323,6 +364,7 @@ class MarketScannerTests(unittest.TestCase):
                 "ma60": 190.5,
                 "ma150": 145.5,
                 "ma200": 120.5,
+                "ma200_20_sessions_ago": 100.5,
                 "average_volume_20": 1_000_000,
                 "obv": 219_000_000.0,
                 "obv_change_20": 20_000_000.0,
@@ -632,7 +674,8 @@ class MarketScannerTests(unittest.TestCase):
                 require_rising_obv=True,
                 require_rising_ad=True,
                 require_ma_alignment=True,
-                batch_size=50,
+                require_rising_ma200=True,
+                batch_size=50,        
             )
 
         self.assertEqual(result, technical_rows)
@@ -655,6 +698,7 @@ class MarketScannerTests(unittest.TestCase):
             require_rising_obv=True,
             require_rising_ad=True,
             require_ma_alignment=True,
+            require_rising_ma200=True,
         )
 
     def test_scans_market_from_universe_to_candidates(self) -> None:

@@ -7,6 +7,7 @@
     "max_price_vs_ma20_pct": 10.0,
     "require_above_ma20": true,
     "require_ma_alignment": true,
+    "require_rising_ma200": true,
     "require_rising_obv": true,
     "require_rising_ad": true,
     "batch_size": 100,
