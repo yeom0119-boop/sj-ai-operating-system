@@ -33,7 +33,7 @@ class MarketScannerTests(unittest.TestCase):
         self.assertEqual(config["min_price"], 5.0)
         self.assertEqual(config["min_average_volume"], 500000)
         self.assertEqual(config["min_average_dollar_volume"], 20000000)
-        self.assertEqual(config["min_rsi"], 50.0)
+        self.assertEqual(config["min_rsi"], 55.0)
         self.assertEqual(config["max_rsi"], 75.0)
         self.assertEqual(config["max_price_vs_ma20_pct"], 10.0)
         self.assertTrue(config["require_above_ma20"])
@@ -675,7 +675,7 @@ class MarketScannerTests(unittest.TestCase):
                 require_rising_ad=True,
                 require_ma_alignment=True,
                 require_rising_ma200=True,
-                batch_size=50,        
+                batch_size=50,
             )
 
         self.assertEqual(result, technical_rows)
