@@ -97,6 +97,7 @@ def calculate_indicators(data: pd.DataFrame) -> pd.DataFrame:
     result = data.copy()
 
     result["MA20"] = result["Close"].rolling(window=20).mean()
+    result["MA50"] = result["Close"].rolling(window=50).mean()
     result["MA60"] = result["Close"].rolling(window=60).mean()
     result["MA150"] = result["Close"].rolling(window=150).mean()
     result["MA200"] = result["Close"].rolling(window=200).mean()
@@ -138,9 +139,7 @@ def build_stock_report(ticker: str) -> str:
     """
     symbol = normalize_ticker(ticker)
     indicators = calculate_indicators(fetch_stock_history(symbol))
-    indicators = calculate_indicators(fetch_stock_history(symbol))
     metadata = build_market_metadata(indicators)
-    footprint = calculate_footprint_scores(indicators)
     footprint = calculate_footprint_scores(indicators)
     latest = indicators.iloc[-1]
     previous = indicators.iloc[-2]

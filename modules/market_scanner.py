@@ -286,8 +286,9 @@ def build_technical_snapshot(
 
     indicators = calculate_indicators(data)
     indicator_columns = [
-        "Close",
+                "Close",
         "MA20",
+        "MA50",
         "MA60",
         "MA150",
         "MA200",
@@ -322,6 +323,7 @@ def build_technical_snapshot(
         "price": round(price, 2),
         "ma20": round(ma20, 2),
         "price_vs_ma20_pct": round(price_vs_ma20_pct, 2),
+        "ma50": round(float(latest["MA50"]), 2),
         "ma60": round(float(latest["MA60"]), 2),
         "ma150": round(float(latest["MA150"]), 2),
         "ma200": round(float(latest["MA200"]), 2),
@@ -433,6 +435,7 @@ def filter_technical_candidates(
     require_above_ma20: bool,
     require_rising_obv: bool,
     require_rising_ad: bool,
+    require_ma_alignment: bool = False,
 ) -> list[dict[str, object]]:
     """Filter liquid candidates using configurable technical rules.
 
@@ -444,6 +447,7 @@ def filter_technical_candidates(
         require_above_ma20: Whether price must be above MA20.
         require_rising_obv: Whether 20-session OBV change must be positive.
         require_rising_ad: Whether 20-session A/D change must be positive.
+        require_ma_alignment: Whether MA20 > MA50 > MA150 > MA200 is required.
     Output:
         Technical candidates that satisfy every enabled rule.
     Role:
@@ -483,6 +487,17 @@ def filter_technical_candidates(
 
         if require_above_ma20 and price <= ma20:
             continue
+
+        if require_ma_alignment:
+            try:
+                ma50 = float(row["ma50"])
+                ma150 = float(row["ma150"])
+                ma200 = float(row["ma200"])
+            except (KeyError, TypeError, ValueError):
+                continue
+
+            if not ma20 > ma50 > ma150 > ma200:
+                continue
 
         if require_rising_obv and obv_change_20 <= 0:
             continue
@@ -645,6 +660,7 @@ def scan_us_market_technical_candidates(
     require_above_ma20: bool,
     require_rising_obv: bool,
     require_rising_ad: bool,
+    require_ma_alignment: bool = False,
     batch_size: int = MARKET_DATA_BATCH_SIZE,
 ) -> list[dict[str, object]]:
     """Run the connected liquidity and technical market scan.
@@ -673,6 +689,7 @@ def scan_us_market_technical_candidates(
         max_rsi=max_rsi,
         max_price_vs_ma20_pct=max_price_vs_ma20_pct,
         require_above_ma20=require_above_ma20,
-        require_rising_obv=require_rising_obv,
+                require_rising_obv=require_rising_obv,
         require_rising_ad=require_rising_ad,
+        require_ma_alignment=require_ma_alignment,
     )

@@ -596,6 +596,7 @@ def handle_scan_us_market() -> None:
             max_rsi=float(config["max_rsi"]),
             max_price_vs_ma20_pct=float(config["max_price_vs_ma20_pct"]),
             require_above_ma20=bool(config["require_above_ma20"]),
+            require_ma_alignment=bool(config["require_ma_alignment"]),
             require_rising_obv=bool(config["require_rising_obv"]),
             require_rising_ad=bool(config["require_rising_ad"]),
             batch_size=int(config["batch_size"]),

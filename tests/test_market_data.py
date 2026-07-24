@@ -41,6 +41,7 @@ class MarketDataTests(unittest.TestCase):
         result = calculate_indicators(data)
 
         self.assertIn("MA20", result.columns)
+        self.assertIn("MA50", result.columns)
         self.assertIn("MA60", result.columns)
         self.assertIn("MA150", result.columns)
         self.assertIn("MA200", result.columns)
@@ -50,6 +51,7 @@ class MarketDataTests(unittest.TestCase):
         self.assertAlmostEqual(result["AD"].iloc[-1], -2000.0)
         self.assertIn("RSI14", result.columns)
         self.assertAlmostEqual(result["MA20"].iloc[-1], 50.5)
+        self.assertAlmostEqual(result["MA50"].iloc[-1], 35.5)
         self.assertAlmostEqual(result["MA60"].iloc[-1], 30.5)
         self.assertEqual(result["OBV"].iloc[-1], 5900)
         self.assertAlmostEqual(result["RSI14"].iloc[-1], 100.0)
