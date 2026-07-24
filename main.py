@@ -600,6 +600,7 @@ def handle_scan_us_market() -> None:
             require_rising_ma200=bool(
                 config["require_rising_ma200"]
             ),
+            require_stage_two=bool(config["require_stage_two"]),
             require_rising_obv=bool(config["require_rising_obv"]),
             require_rising_ad=bool(config["require_rising_ad"]),
             batch_size=int(config["batch_size"]),

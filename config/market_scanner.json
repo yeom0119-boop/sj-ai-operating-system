@@ -8,6 +8,7 @@
     "require_above_ma20": true,
     "require_ma_alignment": true,
     "require_rising_ma200": true,
+    "require_stage_two": true,
     "require_rising_obv": true,
     "require_rising_ad": true,
     "batch_size": 100,

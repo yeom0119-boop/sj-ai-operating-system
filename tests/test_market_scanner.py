@@ -39,6 +39,7 @@ class MarketScannerTests(unittest.TestCase):
         self.assertTrue(config["require_above_ma20"])
         self.assertTrue(config["require_ma_alignment"])
         self.assertTrue(config["require_rising_ma200"])
+        self.assertTrue(config["require_stage_two"])
         self.assertTrue(config["require_rising_obv"])
         self.assertTrue(config["require_rising_ad"])
         self.assertEqual(config["batch_size"], 100)
@@ -85,6 +86,52 @@ class MarketScannerTests(unittest.TestCase):
         self.assertEqual(
             [candidate["ticker"] for candidate in result],
             ["ALIGNED"],
+        )
+    def test_filters_candidates_by_stage_two(self) -> None:
+        """Only candidates in a confirmed Stage 2 uptrend pass."""
+        technical_rows = [
+            {
+                "ticker": "STAGE2",
+                "price": 110.0,
+                "ma20": 105.0,
+                "ma50": 100.0,
+                "ma150": 90.0,
+                "ma150_20_sessions_ago": 88.0,
+                "ma200": 80.0,
+                "ma200_20_sessions_ago": 78.0,
+                "rsi14": 60.0,
+                "obv_change_20": 1.0,
+                "ad_change_20": 1.0,
+            },
+            {
+                "ticker": "FALLING_MA150",
+                "price": 110.0,
+                "ma20": 105.0,
+                "ma50": 100.0,
+                "ma150": 90.0,
+                "ma150_20_sessions_ago": 92.0,
+                "ma200": 80.0,
+                "ma200_20_sessions_ago": 78.0,
+                "rsi14": 60.0,
+                "obv_change_20": 1.0,
+                "ad_change_20": 1.0,
+            },
+        ]
+
+        result = filter_technical_candidates(
+            technical_rows,
+            min_rsi=55.0,
+            max_rsi=75.0,
+            max_price_vs_ma20_pct=10.0,
+            require_above_ma20=True,
+            require_rising_obv=True,
+            require_rising_ad=True,
+            require_stage_two=True,
+        )
+
+        self.assertEqual(
+            [candidate["ticker"] for candidate in result],
+            ["STAGE2"],
         )
     def test_filters_candidates_by_rising_ma200(self) -> None:
         """Only candidates with a rising 200-day moving average pass."""
@@ -363,6 +410,7 @@ class MarketScannerTests(unittest.TestCase):
                 "ma50": 195.5,
                 "ma60": 190.5,
                 "ma150": 145.5,
+                "ma150_20_sessions_ago": 125.5,
                 "ma200": 120.5,
                 "ma200_20_sessions_ago": 100.5,
                 "average_volume_20": 1_000_000,
@@ -675,6 +723,7 @@ class MarketScannerTests(unittest.TestCase):
                 require_rising_ad=True,
                 require_ma_alignment=True,
                 require_rising_ma200=True,
+                require_stage_two=True,
                 batch_size=50,
             )
 
@@ -699,6 +748,7 @@ class MarketScannerTests(unittest.TestCase):
             require_rising_ad=True,
             require_ma_alignment=True,
             require_rising_ma200=True,
+            require_stage_two=True,
         )
 
     def test_scans_market_from_universe_to_candidates(self) -> None:

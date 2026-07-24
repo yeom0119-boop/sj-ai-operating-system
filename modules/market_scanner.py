@@ -73,6 +73,7 @@ def load_market_scanner_config(
         "require_above_ma20",
         "require_rising_ma200",
         "require_rising_obv",
+        "require_stage_two",
         "require_rising_ad",
         "batch_size",
         "max_candidates",
@@ -304,6 +305,7 @@ def build_technical_snapshot(
         return None
 
     twenty_sessions_ago = indicators.iloc[-21]
+    ma150_20_sessions_ago = twenty_sessions_ago["MA150"]
     ma200_20_sessions_ago = twenty_sessions_ago["MA200"]
     obv_change_20 = latest["OBV"] - twenty_sessions_ago["OBV"]
     ad_change_20 = latest["AD"] - twenty_sessions_ago["AD"]
@@ -328,6 +330,10 @@ def build_technical_snapshot(
         "ma50": round(float(latest["MA50"]), 2),
         "ma60": round(float(latest["MA60"]), 2),
         "ma150": round(float(latest["MA150"]), 2),
+        "ma150_20_sessions_ago": round(
+            float(ma150_20_sessions_ago),
+            2,
+        ),
         "ma200": round(float(latest["MA200"]), 2),
         "ma200_20_sessions_ago": round(float(ma200_20_sessions_ago), 2),
         "average_volume_20": round(float(latest["VOLUME20"])),
@@ -440,6 +446,7 @@ def filter_technical_candidates(
     require_rising_ad: bool,
     require_ma_alignment: bool = False,
     require_rising_ma200: bool = False,
+    require_stage_two: bool = False,
 ) -> list[dict[str, object]]:
     """Filter liquid candidates using configurable technical rules.
 
@@ -453,6 +460,7 @@ def filter_technical_candidates(
         require_rising_ad: Whether 20-session A/D change must be positive.
         require_ma_alignment: Whether MA20 > MA50 > MA150 > MA200 is required.
         require_rising_ma200: Whether MA200 must be above its value 20 sessions ago.
+        require_stage_two: Whether the stock must be in a confirmed Stage 2 uptrend.
     Output:
         Technical candidates that satisfy every enabled rule.
     Role:
@@ -504,6 +512,28 @@ def filter_technical_candidates(
             if not ma20 > ma50 > ma150 > ma200:
                 continue
 
+        if require_stage_two:
+            try:
+                ma50 = float(row["ma50"])
+                ma150 = float(row["ma150"])
+                ma150_20_sessions_ago = float(
+                    row["ma150_20_sessions_ago"]
+                )
+                ma200 = float(row["ma200"])
+                ma200_20_sessions_ago = float(
+                    row["ma200_20_sessions_ago"]
+                )
+            except (KeyError, TypeError, ValueError):
+                continue
+
+            is_stage_two = (
+                price > ma150
+                and ma50 > ma150 > ma200
+                and ma150 > ma150_20_sessions_ago
+                and ma200 > ma200_20_sessions_ago
+            )
+            if not is_stage_two:
+                continue
         if require_rising_ma200:
             try:
                 ma200 = float(row["ma200"])
@@ -679,6 +709,7 @@ def scan_us_market_technical_candidates(
     require_rising_ad: bool,
     require_ma_alignment: bool = False,
     require_rising_ma200: bool = False,
+    require_stage_two: bool = False,
     batch_size: int = MARKET_DATA_BATCH_SIZE,
 ) -> list[dict[str, object]]:
     """Run the connected liquidity and technical market scan.
@@ -711,4 +742,5 @@ def scan_us_market_technical_candidates(
         require_rising_ad=require_rising_ad,
         require_ma_alignment=require_ma_alignment,
         require_rising_ma200=require_rising_ma200,
+        require_stage_two=require_stage_two,
     )
