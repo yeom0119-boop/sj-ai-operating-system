@@ -8,6 +8,7 @@ from modules.market_scanner import (
     DIRECTORY_TIMEOUT_SECONDS,
     NASDAQ_LISTED_URL,
     build_technical_snapshot,
+    calculate_vcp_tcv_score,
     collect_market_rows,
     collect_technical_rows,
     collect_us_market_universe,
@@ -25,6 +26,19 @@ from modules.market_scanner import (
 
 
 class MarketScannerTests(unittest.TestCase):
+    def test_calculates_vcp_tcv_score(self) -> None:
+        """Trend, contraction, volume, and tightness form a 100-point score."""
+        score = calculate_vcp_tcv_score(
+            is_stage_two=True,
+            price_range_60_pct=20.0,
+            price_range_20_pct=12.0,
+            price_range_10_pct=6.0,
+            average_volume_50=1_500_000.0,
+            average_volume_20=1_200_000.0,
+            average_volume_10=900_000.0,
+        )
+
+        self.assertEqual(score, 100)
     """Verify preparation of ticker symbols for full-market scanning."""
     def test_loads_market_scanner_config(self) -> None:
         """The checked-in configuration provides every scanner default."""
@@ -215,6 +229,37 @@ class MarketScannerTests(unittest.TestCase):
         self.assertEqual(
             [candidate["ticker"] for candidate in result],
             ["PASS"],
+        )
+
+    def test_prioritizes_vcp_tcv_score_when_ranking(self) -> None:
+        """A stronger VCP/TCV setup ranks above a larger footprint signal."""
+        candidates = [
+            {
+                "ticker": "HIGHVCP",
+                "vcp_tcv_score": 90,
+                "rsi14": 60.0,
+                "price_vs_ma20_pct": 2.0,
+                "obv_change_ratio_20": 0.1,
+                "ad_change_ratio_20": 0.1,
+            },
+            {
+                "ticker": "LOWVCP",
+                "vcp_tcv_score": 50,
+                "rsi14": 60.0,
+                "price_vs_ma20_pct": 2.0,
+                "obv_change_ratio_20": 0.4,
+                "ad_change_ratio_20": 0.4,
+            },
+        ]
+
+        result = rank_technical_candidates(
+            candidates,
+            max_candidates=2,
+        )
+
+        self.assertEqual(
+            [candidate["ticker"] for candidate in result],
+            ["HIGHVCP", "LOWVCP"],
         )
 
     def test_ranks_and_limits_technical_candidates(self) -> None:
@@ -421,6 +466,8 @@ class MarketScannerTests(unittest.TestCase):
                 "ad_change_20": 0.0,
                 "ad_change_ratio_20": 0.0,
                 "rsi14": 100.0,
+                "is_stage_two": True,
+                "vcp_tcv_score": 70,
             },
         )
     def test_collects_technical_rows_for_liquid_candidates(self) -> None:

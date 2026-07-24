@@ -629,7 +629,8 @@ def handle_scan_us_market() -> None:
         print(
             f"{position}. {candidate['ticker']} | "
             f"Price: ${candidate['price']:.2f} | "
-            f"RSI14: {candidate['rsi14']:.2f}"
+            f"RSI14: {candidate['rsi14']:.2f} | "
+            f"VCP/TCV: {candidate['vcp_tcv_score']}"
         )
     analysis_candidates = candidates[:deep_analysis_limit]
     completed = []
@@ -654,6 +655,10 @@ def handle_scan_us_market() -> None:
                 f"- **Technical rank**: {candidate['technical_rank']}\n"
                 f"- **Footprint strength**: "
                 f"{candidate['footprint_strength']:.4f}\n"
+                f"- **Footprint strength**: "
+                f"{candidate['footprint_strength']:.4f}\n"
+                f"- **VCP/TCV score**: "
+                f"{candidate['vcp_tcv_score']}/100\n"
                 f"- **Price**: ${candidate['price']:.2f}\n"
                 f"- **RSI14**: {candidate['rsi14']:.2f}\n"
                 f"- **Price vs MA20**: "

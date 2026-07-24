@@ -267,6 +267,51 @@ def collect_market_rows(
             )
 
     return sorted(market_rows, key=lambda row: row["ticker"])
+def calculate_vcp_tcv_score(
+    is_stage_two: bool,
+    price_range_60_pct: float,
+    price_range_20_pct: float,
+    price_range_10_pct: float,
+    average_volume_50: float,
+    average_volume_20: float,
+    average_volume_10: float,
+) -> int:
+    """Calculate the SJ VCP/TCV setup score.
+
+    Input:
+        Stage 2 status, price-range percentages, and average volumes.
+    Output:
+        Integer score between 0 and 100.
+    Role:
+        Measure trend, volatility contraction, volume contraction,
+        and final price tightness using transparent rules.
+    """
+    score = 0
+
+    if is_stage_two:
+        score += 10
+
+    if price_range_20_pct < price_range_60_pct:
+        score += 20
+
+    if price_range_10_pct < price_range_20_pct:
+        score += 20
+
+    if average_volume_20 < average_volume_50:
+        score += 15
+
+    if average_volume_10 < average_volume_20:
+        score += 15
+
+    if price_range_10_pct <= 8.0:
+        score += 10
+
+    if price_range_20_pct <= 15.0:
+        score += 10
+
+    return score
+
+
 def build_technical_snapshot(
     ticker: str,
     data: pd.DataFrame,
@@ -314,6 +359,57 @@ def build_technical_snapshot(
     ma20 = float(latest["MA20"])
     average_volume_20 = float(latest["VOLUME20"])
     normalization_volume_20 = average_volume_20 * 20
+    recent_60 = indicators[
+        ["High", "Low", "Volume"]
+    ].tail(60).dropna()
+
+    if len(recent_60) < 60:
+        return None
+
+    recent_20 = recent_60.tail(20)
+    recent_10 = recent_60.tail(10)
+
+    low_60 = float(recent_60["Low"].min())
+    low_20 = float(recent_20["Low"].min())
+    low_10 = float(recent_10["Low"].min())
+
+    if low_60 <= 0 or low_20 <= 0 or low_10 <= 0:
+        return None
+
+    price_range_60_pct = (
+        (float(recent_60["High"].max()) / low_60) - 1
+    ) * 100
+    price_range_20_pct = (
+        (float(recent_20["High"].max()) / low_20) - 1
+    ) * 100
+    price_range_10_pct = (
+        (float(recent_10["High"].max()) / low_10) - 1
+    ) * 100
+
+    average_volume_50 = float(
+        recent_60["Volume"].tail(50).mean()
+    )
+    average_volume_10 = float(recent_10["Volume"].mean())
+
+    ma50 = float(latest["MA50"])
+    ma150 = float(latest["MA150"])
+    ma200 = float(latest["MA200"])
+
+    is_stage_two = (
+        price > ma150
+        and ma50 > ma150 > ma200
+        and ma150 > float(ma150_20_sessions_ago)
+        and ma200 > float(ma200_20_sessions_ago)
+    )
+    vcp_tcv_score = calculate_vcp_tcv_score(
+        is_stage_two=is_stage_two,
+        price_range_60_pct=price_range_60_pct,
+        price_range_20_pct=price_range_20_pct,
+        price_range_10_pct=price_range_10_pct,
+        average_volume_50=average_volume_50,
+        average_volume_20=average_volume_20,
+        average_volume_10=average_volume_10,
+    )
 
     if ma20 <= 0 or normalization_volume_20 <= 0:
         return None
@@ -344,6 +440,8 @@ def build_technical_snapshot(
         "ad_change_20": round(float(ad_change_20), 2),
         "ad_change_ratio_20": round(float(ad_change_ratio_20), 4),
         "rsi14": round(float(latest["RSI14"]), 2),
+        "is_stage_two": is_stage_two,
+        "vcp_tcv_score": vcp_tcv_score,
     }
 
 def collect_technical_rows(
@@ -586,11 +684,15 @@ def rank_technical_candidates(
             ad_ratio = float(candidate["ad_change_ratio_20"])
             rsi14 = float(candidate["rsi14"])
             price_extension = float(candidate["price_vs_ma20_pct"])
+            vcp_tcv_score = float(
+            candidate.get("vcp_tcv_score", 0)
+            )
         except (KeyError, TypeError, ValueError):
             continue
 
         ranked_candidate = candidate.copy()
         ranked_candidate["ticker"] = ticker
+        ranked_candidate["vcp_tcv_score"] = round(vcp_tcv_score)
         ranked_candidate["footprint_strength"] = round(
             obv_ratio + ad_ratio,
             4,
@@ -599,6 +701,7 @@ def rank_technical_candidates(
 
     valid_candidates.sort(
         key=lambda candidate: (
+            -float(candidate["vcp_tcv_score"]),
             -float(candidate["footprint_strength"]),
             abs(float(candidate["rsi14"]) - 60.0),
             float(candidate["price_vs_ma20_pct"]),

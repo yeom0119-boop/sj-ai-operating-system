@@ -108,6 +108,7 @@ class MarketScannerHandlerTests(unittest.TestCase):
             "ticker": "NVDA",
             "price": 202.81,
             "rsi14": 61.25,
+            "vcp_tcv_score": 90,
             "price_vs_ma20_pct": 3.5,
             "obv_change_ratio_20": 0.4,
             "ad_change_ratio_20": 0.3,
@@ -163,7 +164,7 @@ class MarketScannerHandlerTests(unittest.TestCase):
         self.assertIn("Candidates: 1", output)
         self.assertIn("NVDA", output)
         self.assertIn("RSI14: 61.25", output)
-
+        self.assertIn("VCP/TCV: 90", output)
 
 class WatchlistReportTests(unittest.TestCase):
     """Tests for automated reports generated from the watchlist."""
