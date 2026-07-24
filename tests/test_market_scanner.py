@@ -38,7 +38,7 @@ class MarketScannerTests(unittest.TestCase):
             average_volume_10=900_000.0,
         )
 
-        self.assertEqual(score, 100)
+        self.assertEqual(score, 94)
     """Verify preparation of ticker symbols for full-market scanning."""
     def test_loads_market_scanner_config(self) -> None:
         """The checked-in configuration provides every scanner default."""
@@ -467,7 +467,7 @@ class MarketScannerTests(unittest.TestCase):
                 "ad_change_ratio_20": 0.0,
                 "rsi14": 100.0,
                 "is_stage_two": True,
-                "vcp_tcv_score": 70,
+                "vcp_tcv_score": 66,
             },
         )
     def test_collects_technical_rows_for_liquid_candidates(self) -> None:

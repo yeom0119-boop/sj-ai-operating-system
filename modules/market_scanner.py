@@ -284,32 +284,81 @@ def calculate_vcp_tcv_score(
         Integer score between 0 and 100.
     Role:
         Measure trend, volatility contraction, volume contraction,
-        and final price tightness using transparent rules.
+        and final price tightness using continuous scoring rules.
     """
-    score = 0
+    def reduction_score(
+        current_value: float,
+        previous_value: float,
+        target_reduction: float,
+        maximum_points: float,
+    ) -> float:
+        """Return proportional points for a measurable contraction."""
+        if previous_value <= 0 or current_value >= previous_value:
+            return 0.0
 
-    if is_stage_two:
-        score += 10
+        reduction_ratio = 1 - (current_value / previous_value)
+        return min(
+            maximum_points,
+            maximum_points * reduction_ratio / target_reduction,
+        )
 
-    if price_range_20_pct < price_range_60_pct:
-        score += 20
+    def tightness_score(
+        value: float,
+        tight_value: float,
+        loose_value: float,
+        maximum_points: float,
+    ) -> float:
+        """Return proportional points for the final tight price range."""
+        if value <= tight_value:
+            return maximum_points
 
-    if price_range_10_pct < price_range_20_pct:
-        score += 20
+        if value >= loose_value:
+            return 0.0
 
-    if average_volume_20 < average_volume_50:
-        score += 15
+        return maximum_points * (
+            (loose_value - value) / (loose_value - tight_value)
+        )
 
-    if average_volume_10 < average_volume_20:
-        score += 15
+    score = 10.0 if is_stage_two else 0.0
 
-    if price_range_10_pct <= 8.0:
-        score += 10
+    score += reduction_score(
+        price_range_20_pct,
+        price_range_60_pct,
+        target_reduction=0.40,
+        maximum_points=20.0,
+    )
+    score += reduction_score(
+        price_range_10_pct,
+        price_range_20_pct,
+        target_reduction=0.40,
+        maximum_points=20.0,
+    )
+    score += reduction_score(
+        average_volume_20,
+        average_volume_50,
+        target_reduction=0.20,
+        maximum_points=15.0,
+    )
+    score += reduction_score(
+        average_volume_10,
+        average_volume_20,
+        target_reduction=0.20,
+        maximum_points=15.0,
+    )
+    score += tightness_score(
+        price_range_10_pct,
+        tight_value=4.0,
+        loose_value=12.0,
+        maximum_points=10.0,
+    )
+    score += tightness_score(
+        price_range_20_pct,
+        tight_value=8.0,
+        loose_value=20.0,
+        maximum_points=10.0,
+    )
 
-    if price_range_20_pct <= 15.0:
-        score += 10
-
-    return score
+    return round(score)
 
 
 def build_technical_snapshot(
